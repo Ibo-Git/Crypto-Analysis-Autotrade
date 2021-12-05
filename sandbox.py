@@ -1,51 +1,64 @@
 import requests
-
-
+from datetime import datetime
 
 
 
 # get current bitcoin price
-TICKER_API_URL = 'https://api.coinmarketcap.com/v1/ticker/'
+TICKER_API_URL = 'https://api.kraken.com/0/public/Ticker'
+FEE_API_URL = 'https://api.kraken.com/0/public/AssetPairs?pair=XXBTZUSD'
 
-def get_latest_crypto_price(crypto):
-  response = requests.get(TICKER_API_URL + crypto)
-  response_json = response.json()
-  return float(response_json[0]['price_usd'])
-
-
-
-
-
+# da fees immer fix, braucht man das nich mehr, kannst einmal auslesen und speichern :D
+def get_conversion_fee():
+    response = requests.get(FEE_API_URL)
+    response_json = response.json()
+    return response_json['result']['XXBTZUSD']['fees']
 
 class Sandbox:
-    def __init__(self, balance = 0):
-        self._balance = balance
+    def __init__(self, currencyList):
+        self.currencies = currencyList
 
-    @property
-    def _balance(self):
-        return self._balance
+    def currency_conversion(self, currency_1, currency_2, price = 'a'):
+        pair = {'pair': currency_1 + currency_2}
+        response = requests.get(TICKER_API_URL, pair)
+        response_json = response.json()
 
-    @_balance.setter
-    def balance(self, value):
-        self._balance = value
+        if not response_json['error']:
+            return float(response_json['result'][currency_1 + currency_2][price][0])
+        else:
+            raise Exception(response_json['error'][0])
 
-    def buy_crypto(self, name, amount):
-        #usd = get_latest_crypto_price(name) # e.g. bitcoin
-        #fees = get_fee()
-        # set balance
-        return
+    def convert(self, currency_1, currency_2, amount_currency_1):
+        try:
+            # funktioniert nur in eine Richtung: FIX!!! -> Verkaufen von BTC muss umgerechnet werden!  
+            value = Sandbox.currency_conversion(currency_1, currency_2)
+        except:
+            pass
 
-    def sell_crypto(self, name, amount):
-        # set balance
+        try:
+            if amount_currency_1 > self.currencies[currency_1].balance:
+                raise ValueError('You can not sell more than you have bought.')
+            elif amount_currency_1  < 0:
+                raise ValueError('You must sell more than 0$.')
+            
+            # add to history
+            now = datetime.now()
+            transaction_date = now.strftime("%Y/%m/%d - %H:%M:%S")
 
-        if amount > self.balance:
-            raise ValueError('You can not sell more than you have bought.')
-        elif amount < 0:
-            raise ValueError('You must sell more than 0$.')
+        except:
+            pass
+
+
+class Currency:
+    def __init__(self, code, balance = 0):
+        self.code = code
+        self.balance = balance
+
 
 
 def main():
     test123 = Sandbox()
+    test123.convert('XETH', 'XXBT', 100)
+
 
 if __name__ == '__main__':
     main()
