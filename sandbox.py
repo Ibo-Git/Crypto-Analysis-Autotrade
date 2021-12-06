@@ -13,6 +13,7 @@ class Sandbox:
         self.transaction_history = []
         self.get_asset_pairs()
 
+
     def get_asset_pairs(self):
         response = requests.get(API_URLS['AssetPairs'])
         response_json = response.json()      
@@ -49,16 +50,18 @@ class Sandbox:
             raw_info = Sandbox.asset_pairs_ticker_info_raw(asset_code_1, asset_code_2)
 
             if asset_amount >= 0:
-                return (float(raw_info['a'][0]))
+                return float(raw_info['a'][0])
             else:
-                return (float(raw_info['b'][0]))
+                return float(raw_info['b'][0])
 
         elif asset_code_1 in self.pair_codes[asset_code_2]:
             raw_info = Sandbox.asset_pairs_ticker_info_raw(asset_code_2, asset_code_1)
+
             if asset_amount >= 0:
-                return 1/(float(raw_info['b'][0]))
+                return 1 / (float(raw_info['b'][0]))
             else:
-                return 1/(float(raw_info['a'][0]))
+                return 1 / (float(raw_info['a'][0]))
+                
         else:
             raise Exception('Pair code not available.')
 
@@ -69,16 +72,12 @@ class Sandbox:
         # Handle fees
         fee_percentage = 0.0026
         
+        to_asset_amount = asset_conversion_rate * from_asset_amount
         if from_asset_amount >= 0:
-            to_asset_amount = asset_conversion_rate * from_asset_amount
             to_asset_fee_amount = to_asset_amount * fee_percentage
-            to_asset_amount_after_fee = to_asset_amount + to_asset_fee_amount
         else:
-            to_asset_amount = asset_conversion_rate * from_asset_amount
             to_asset_fee_amount = - to_asset_amount * fee_percentage
-            to_asset_amount_after_fee = to_asset_amount + to_asset_fee_amount
-
-
+        to_asset_amount_after_fee = to_asset_amount + to_asset_fee_amount
 
         # Update asset amounts
         if (from_asset_code not in self.assets): self.assets[from_asset_code] = Asset(from_asset_code)
@@ -101,11 +100,11 @@ class Sandbox:
         ))
 
 
-
 class Asset:
     def __init__(self, code):
         self.code  = code
         self.amount = 0
+
 
 class TransactionHistoryEvent:
     def __init__(self, transaction_date, from_asset_code, to_asset_code, from_asset_amount, to_asset_amount, asset_conversion_rate, from_asset_fee_amount, fee_percentage, from_asset_amount_after_fee):
@@ -119,8 +118,6 @@ class TransactionHistoryEvent:
         self.fee_percentage = fee_percentage
         self.from_asset_amount_after_fee = from_asset_amount_after_fee
         
-
-
 
 def main():
     sandbox = Sandbox()
