@@ -122,24 +122,22 @@ class Sandbox:
         print(f'secondary_asset_volume_after_fee: {secondary_asset_volume_after_fee}')
 
         # # Update asset volumes
-        # if (base_asset_code not in self.assets): self.assets[base_asset_code] = Asset(base_asset_code)
-        # if (secondary_asset_code not in self.assets): self.assets[secondary_asset_code] = Asset(secondary_asset_code)
+        if (base_asset_code not in self.assets): self.assets[base_asset_code] = Asset(base_asset_code)
+        if (secondary_asset_code not in self.assets): self.assets[secondary_asset_code] = Asset(secondary_asset_code)
 
-        # self.assets[from_asset_code].volume += from_asset_volume
-        # self.assets[to_asset_code].volume -= to_asset_volume_after_fee
+        self.assets[base_asset_code].volume += base_asset_volume_after_fee
+        self.assets[secondary_asset_code].volume += secondary_asset_volume_after_fee
 
-        # # Append to history
-        # self.transaction_history.append(TransactionHistoryEvent(
-        #     transaction_date=datetime.now(),
-        #     from_asset_code=from_asset_code,
-        #     to_asset_code=to_asset_code,
-        #     from_asset_volume=from_asset_volume,
-        #     to_asset_volume=to_asset_volume,
-        #     asset_conversion_rate=asset_conversion_rate,
-        #     to_asset_fee_volume=to_asset_fee_volume,
-        #     fee_percentage=fee_percentage,            
-        #     to_asset_volume_after_fee=to_asset_volume_after_fee
-        # ))
+        # Append to history
+        self.transaction_history.append(TransactionHistoryEvent(
+            transaction_date=datetime.now(),
+            transaction_type=transaction_type,
+            base_asset_conversion_rate=base_asset_conversion_rate,
+            base_asset_volume=base_asset_volume,
+            base_asset_volume_after_fee=base_asset_volume_after_fee,
+            secondary_asset_volume=secondary_asset_volume,
+            secondary_asset_volume_after_fee=secondary_asset_volume_after_fee,
+        ))
 
 
 class Asset:
@@ -149,17 +147,14 @@ class Asset:
 
 
 class TransactionHistoryEvent:
-    def __init__(self, transaction_date, from_asset_code, to_asset_code, from_asset_volume, to_asset_volume, asset_conversion_rate, to_asset_fee_volume, fee_percentage, to_asset_volume_after_fee):
-        self.transaction_date = transaction_date
-        self.from_asset_code = from_asset_code
-        self.to_asset_code = to_asset_code
-        self.from_asset_volume = from_asset_volume
-        self.to_asset_volume = to_asset_volume
-        self.asset_conversion_rate = asset_conversion_rate
-        self.to_asset_fee_volume = to_asset_fee_volume
-        self.fee_percentage = fee_percentage
-        self.to_asset_volume_after_fee = to_asset_volume_after_fee
-        
+    def __init__(self, transaction_date, transaction_type, base_asset_conversion_rate, base_asset_volume, base_asset_volume_after_fee, secondary_asset_volume, secondary_asset_volume_after_fee):
+            self.transaction_date=transaction_date,
+            self.transaction_type=transaction_type,
+            self.base_asset_conversion_rate=base_asset_conversion_rate,
+            self.base_asset_volume=base_asset_volume,
+            self.base_asset_volume_after_fee=base_asset_volume_after_fee,
+            self.secondary_asset_volume=secondary_asset_volume,
+            self.secondary_asset_volume_after_fee=secondary_asset_volume_after_fee,
 
 def main():
     sandbox = Sandbox()
