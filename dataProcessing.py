@@ -7,15 +7,18 @@ from transformerModel import TransformerModel, Trainer
 
 
 def main():
- 
-    decoder_input = torch.tensor([[[0, 0, 0.2, 0.4, 0.6, 0.8], [0, 0, 0.2, 0.4, 0.6, 0.8]], [[0, 0, 0.2, 0.4, 0.6, 0.8], [0, 0, 0.2, 0.4, 0.6, 0.8]]])
-    target_tensor = torch.tensor([[[0, 0.2, 0.4, 0.6, 0.8, 1], [0, 0.2, 0.4, 0.6, 0.8, 1]], [[0, 0.2, 0.4, 0.6, 0.8, 1], [0, 0.2, 0.4, 0.6, 0.8, 1]]])
+    
+    feature_size = 2
+    rand = torch.rand(4, feature_size)
+
+    decoder_input = torch.tensor([[list(rand[0]), list(rand[1]), list(rand[2])]])
+    target_tensor = torch.tensor([[list(rand[1]), list(rand[2]), list(rand[3])]])
 
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = TransformerModel(d_model=decoder_input.size(dim=2), n_heads=3, num_decoder_layers=2).to(device)
-    optimizer = optim.Adam(model.parameters(), lr=0.00001)
-    criterion = nn.MSELoss()
+    model = TransformerModel(feature_size, feature_size, n_heads=1, num_decoder_layers=2, device=device).to(device)
+    optimizer = optim.Adam(model.parameters(), lr=0.1)
+    criterion = nn.HuberLoss()
     trainer = Trainer(model=model, optimizer=optimizer, criterion=criterion, device=device)
     
     
