@@ -25,10 +25,11 @@ class TransformerModel(nn.Module):
     def __init__(self, input_feature_size, output_feature_size, n_heads, num_decoder_layers, device):
         super(TransformerModel, self).__init__()
         self.device = device
-        self.positional_encoder = PositionalEncoding(input_feature_size, dropout=0.1)
+        self.fc_layer_1 = nn.Linear(input_feature_size, 512)
+        self.positional_encoder = PositionalEncoding(d_model=512, dropout=0.1)
         decoder_layer = nn.TransformerEncoderLayer(d_model=512, nhead=n_heads, batch_first=True)
         self.transformer_decoder = nn.TransformerEncoder(decoder_layer, num_decoder_layers)
-        self.fc_layer = nn.Linear(512, output_feature_size)
+        self.fc_layer_2 = nn.Linear(512, output_feature_size)
         self.softmax = nn.Softmax(dim=1) # scale output in time between [0, 1]
 
 
@@ -36,10 +37,13 @@ class TransformerModel(nn.Module):
         # transformer masks
         tgt_mask = nn.Transformer.generate_square_subsequent_mask(nn.Transformer(), tgt.size(dim=1)).to(self.device) # sequence length
         # forward
-        out_dec = self.transformer_decoder(tgt, tgt_mask)
-        out = self.softmax(out_dec)
-        print(out)
-        return out_dec
+        out_fc_1 = self.fc_layer_1(tgt)
+        out_pos_enc = self.positional_encoder(out_fc_1)
+        out_dec = self.transformer_decoder(out_pos_enc, tgt_mask)
+        out_fc_2 = self.fc_layer_2(out_dec)
+        out = self.softmax(out_fc_2)
+        print(out_fc_2)
+        return out_fc_2
 
     
 class Trainer():
