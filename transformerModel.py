@@ -41,8 +41,6 @@ class TransformerModel(nn.Module):
         out_pos_enc = self.positional_encoder(out_fc_1)
         out_dec = self.transformer_decoder(out_pos_enc, tgt_mask)
         out_fc_2 = self.fc_layer_2(out_dec)
-        out = self.softmax(out_fc_2)
-        print(out_fc_2)
         return out_fc_2
 
     
@@ -65,6 +63,7 @@ class Trainer():
         # backpropagation
         self.optimizer.zero_grad()
         output = self.model(decoder_input)
+        print(target_tensor - output.data)
         loss = self.criterion(output, target_tensor)
         loss.backward()
         self.optimizer.step()
