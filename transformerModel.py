@@ -55,10 +55,10 @@ class Trainer():
     def train_transformer(self, decoder_input, target_tensor):
         # set mode
         self.model.train()
-
+        self.model = self.model.double()
         # tensors to device
-        target_tensor = target_tensor.to(self.device)
-        decoder_input = decoder_input.to(self.device)
+        target_tensor = target_tensor.to(self.device).double()
+        decoder_input = decoder_input.to(self.device).double()
 
         # backpropagation
         self.optimizer.zero_grad()
@@ -81,12 +81,12 @@ class Trainer():
         # determine loss and accuracy
         output = self.model(decoder_input)
         loss = self.criterion(output, target_tensor)
-        acc = self.get_accuracy()
+        acc = self.get_accuracy(output, target_tensor)
 
         return loss.item(), acc
 
 
     def get_accuracy(self, output, target):
 
-        return
+        return ('Not yet implemented!')
 
