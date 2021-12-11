@@ -45,9 +45,10 @@ class TransformerModel(nn.Module):
 
     
 class Trainer():
-    def __init__(self, model, optimizer, criterion, device):
+    def __init__(self, model, optimizer, scheduler, criterion, device):
         self.model = model
         self.optimizer = optimizer
+        self.scheduler = scheduler 
         self.criterion = criterion
         self.device = device
 
@@ -67,6 +68,7 @@ class Trainer():
         loss = self.criterion(output, target_tensor)
         loss.backward()
         self.optimizer.step()
+        if self.scheduler is not None: self.scheduler.step()
         return loss.item()
 
 
@@ -89,4 +91,9 @@ class Trainer():
     def get_accuracy(self, output, target):
 
         return ('Not yet implemented!')
+
+
+    def set_learningrate(self, new_lr):
+        for g in self.optimizer.param_groups:
+            g['lr'] = new_lr
 

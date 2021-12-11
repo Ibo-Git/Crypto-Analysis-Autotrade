@@ -13,8 +13,8 @@ def data_preprocessing(xbtusd_data):
     val_sequences = xbtusd_data.tail(math.ceil(len(xbtusd_data) * 0.2))
     train_ds = CustomDataset(train_sequences)
     val_ds = CustomDataset(val_sequences)
-    train_dl = DataLoader(train_ds, batch_size=128, shuffle=True, num_workers=4, pin_memory=True, persistent_workers=False)
-    val_dl = DataLoader(val_ds, batch_size=128, shuffle=True, num_workers=4, pin_memory=True, persistent_workers=False)
+    train_dl = DataLoader(train_ds, batch_size=128, shuffle=True, num_workers=4, pin_memory=True, persistent_workers=True)
+    val_dl = DataLoader(val_ds, batch_size=128, shuffle=True, num_workers=4, pin_memory=True, persistent_workers=True)
     return train_dl, val_dl
 
 
@@ -29,7 +29,7 @@ def main():
     model = TransformerModel(input_feature_size=4, output_feature_size=4, n_heads=2, num_decoder_layers=2, device=device).to(device)
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
     criterion = nn.MSELoss()
-    trainer = Trainer(model=model, optimizer=optimizer, criterion=criterion, device=device)
+    trainer = Trainer(model=model, optimizer=optimizer, scheduler=None, criterion=criterion, device=device)
     
     
     for epoch in range(1000):
