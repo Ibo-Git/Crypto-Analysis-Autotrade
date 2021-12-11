@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import math 
-
+import os
 
 class PositionalEncoding(nn.Module):
 
@@ -54,6 +54,8 @@ class Trainer():
 
 
     def train_transformer(self, decoder_input, target_tensor):
+        # load model
+        #Trainer.load_training(self.model, self.optimizer, os.path.join('savedFiles', 'test.pt'))
         # set mode
         self.model.train()
         self.model = self.model.double()
@@ -83,9 +85,9 @@ class Trainer():
         # determine loss and accuracy
         output = self.model(decoder_input)
         loss = self.criterion(output, target_tensor)
-        acc = self.get_accuracy(output, target_tensor)
+        #acc = self.get_accuracy(output, target_tensor)
 
-        return loss.item(), acc
+        return loss.item()
 
 
     def get_accuracy(self, output, target):
@@ -96,4 +98,20 @@ class Trainer():
     def set_learningrate(self, new_lr):
         for g in self.optimizer.param_groups:
             g['lr'] = new_lr
+
+
+    # Saving & Loading a General Checkpoint for Inference and/or Resuming Training
+    def save_training(self, model, optimizer, loss, path):
+        torch.save({
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'loss': loss,
+        }, path)
+    
+    def load_training(model, optimizer, path):
+        checkpoint = torch.load(path)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        loss = checkpoint['loss'] # useless, is not returned
+        model.train()
 

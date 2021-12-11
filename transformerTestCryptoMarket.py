@@ -36,6 +36,8 @@ def main():
         for decoder_input, expected_output in train_dl:
             loss = trainer.train_transformer(decoder_input, expected_output)
             print(loss)
+        for decoder_input, expected_output in val_dl:
+            loss = trainer.evaluate_transformer(decoder_input, expected_output)
 
 if __name__ == '__main__':
     main()
