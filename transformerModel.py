@@ -101,7 +101,7 @@ class Trainer():
 
 
     # Saving & Loading a General Checkpoint for Inference and/or Resuming Training
-    def save_training(self, model, optimizer, loss, path):
+    def save_training(model, optimizer, loss, path):
         torch.save({
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
