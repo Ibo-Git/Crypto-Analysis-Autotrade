@@ -39,7 +39,8 @@ class TransformerModel(nn.Module):
         # forward
         out_fc_1 = self.fc_layer_1(tgt)
         out_pos_enc = self.positional_encoder(out_fc_1)
-        out_dec = self.transformer_decoder(out_pos_enc, tgt_mask)
+        # out_dec = self.transformer_decoder(out_pos_enc, tgt_mask)
+        out_dec = self.transformer_decoder(out_pos_enc)
         out_fc_2 = self.fc_layer_2(out_dec)
         return out_fc_2
 
@@ -55,7 +56,7 @@ class Trainer():
 
     def train_transformer(self, decoder_input, target_tensor):
         # load model
-        #Trainer.load_training(self.model, self.optimizer, os.path.join('savedFiles', 'test.pt'))
+        Trainer.load_training(self.model, self.optimizer, 'test')
         # set mode
         self.model.train()
         self.model = self.model.double()
@@ -101,17 +102,26 @@ class Trainer():
 
 
     # Saving & Loading a General Checkpoint for Inference and/or Resuming Training
-    def save_training(model, optimizer, loss, path):
+    def save_training(model, optimizer, loss, modelname):
+        if not os.path.isdir('savedFiles'):
+            os.makedirs('savedFiles')
+        if not os.path.isfile(os.path.join('savedFiles', modelname + '.pt')):
+            open(os.path.join('savedFiles', modelname + '.pt'), 'w')
+
         torch.save({
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'loss': loss,
-        }, path)
+        }, os.path.join('savedFiles', modelname + '.pt'))
     
-    def load_training(model, optimizer, path):
-        checkpoint = torch.load(path)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        loss = checkpoint['loss'] # useless, is not returned
-        model.train()
+
+    def load_training(model, optimizer, modelname):
+        if os.path.isfile(os.path.join('savedFiles', modelname + '.pt')):
+            checkpoint = torch.load(os.path.join('savedFiles', modelname + '.pt'))
+            model.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            loss = checkpoint['loss'] # useless, is not returned
+            model.train()
+        else:
+            print('Model to load does not exist.')
 
