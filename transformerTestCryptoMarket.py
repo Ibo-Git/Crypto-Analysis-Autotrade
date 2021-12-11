@@ -21,6 +21,8 @@ def data_preprocessing(xbtusd_data):
 
 def main():
     xbtusd_data = yf.download(tickers='BTC-USD', period = 'max', interval = '1d')
+    # xbtusd_data = (xbtusd_data - min(xbtusd_data['Low'])) / (100000 - min(xbtusd_data['Low']))   # scales lowest value to 0
+    xbtusd_data = xbtusd_data / 100000
     train_dl, val_dl = data_preprocessing(xbtusd_data)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
