@@ -1,11 +1,12 @@
+import math
+import os
+
 import torch
 import torch.nn as nn
-import math 
-import os
 import torch.optim as optim
 
-class PositionalEncoding(nn.Module):
 
+class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout, max_len=5000):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
@@ -23,19 +24,16 @@ class PositionalEncoding(nn.Module):
 
 
 class TransformerModel(nn.Module):
-    def __init__(self, input_feature_size, output_feature_size, n_heads, num_encoder_layers, num_decoder_layers, device):
+    def __init__(self, feature_size, n_heads, num_encoder_layers, num_decoder_layers, device):
         super(TransformerModel, self).__init__()
-        self.input_feature_size = input_feature_size
-        self.output_feature_size = output_feature_size
-        self.n_heads = n_heads
-        self.num_decoder_layers = num_decoder_layers
         self.device = device
 
-        self.fc_layer_1 = nn.Linear(input_feature_size, 512)
-        self.positional_encoder = PositionalEncoding(d_model=512, dropout=0.1)
+        self.fc_layer_src = nn.Linear(feature_size, 512)
+        self.fc_layer_tgt = nn.Linear(feature_size, 512)
+        self.positional_encoder_src = PositionalEncoding(d_model=512, dropout=0.1)
+        self.positional_encoder_tgt = PositionalEncoding(d_model=512, dropout=0.1)
         self.transformer = nn.Transformer(d_model=512, nhead=n_heads, num_encoder_layers=num_encoder_layers, num_decoder_layers=num_decoder_layers, batch_first=True)
-        self.fc_layer_2 = nn.Linear(512, output_feature_size)
-        self.softmax = nn.Softmax(dim=1) # scale output in time between [0, 1]
+        self.fc_layer_flatten = nn.Linear(512, feature_size)
 
         self.double()
 
@@ -44,15 +42,17 @@ class TransformerModel(nn.Module):
         # transformer masks
         tgt_mask = nn.Transformer.generate_square_subsequent_mask(nn.Transformer(), tgt.size(dim=1)).to(self.device) # sequence length
         # forward
-        out_fc_1 = self.fc_layer_1(tgt)
-        out_pos_enc = self.positional_encoder(out_fc_1)
-        out_trans = self.transformer(src=src, tgt=tgt, tgt_mask=tgt_mask)
-        out_fc_2 = self.fc_layer_2(out_trans)
-        return out_fc_2
+        src = self.fc_layer_src(src)
+        src = self.positional_encoder_src(src)
+        tgt = self.fc_layer_tgt(tgt)
+        tgt = self.positional_encoder_tgt(tgt)
+        out = self.transformer(src=src, tgt=tgt, tgt_mask=tgt_mask)
+        out = self.fc_layer_flatten(out)
+        return out
 
     
 class Trainer():
-    def __init__(self, model, optimizer, scheduler, criterion, optim_lr, optim_name, loss_name, device):
+    def __init__(self, model, optimizer, scheduler, criterion, optim_lr, optim_name, loss_name, asset_scaling, device):
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler 
@@ -60,43 +60,47 @@ class Trainer():
         self.criterion = criterion
         self.optim_name = optim_name
         self.loss_name = loss_name
+        self.asset_scaling = asset_scaling
         self.device = device
 
 
-    def train_transformer(self, decoder_input, target_tensor):
+    def train_transformer(self, encoder_input, decoder_input, target_tensor):
         self.model.train()
         # tensors to device
-        target_tensor = target_tensor.to(self.device).double()
+        encoder_input = encoder_input.to(self.device).double()
         decoder_input = decoder_input.to(self.device).double()
+        target_tensor = target_tensor.to(self.device).double()
 
         # backpropagation
         self.optimizer.zero_grad()
-        output = self.model(decoder_input)
+        output = self.model(encoder_input, decoder_input)
         loss = self.criterion(output, target_tensor)
         loss.backward()
         self.optimizer.step()
         if self.scheduler is not None: self.scheduler.step()
-        acc = self.get_accuracy(output, target_tensor, 100000).to('cpu')
+        acc = self.get_accuracy(output, target_tensor).to('cpu')
+        
         return loss.item(), acc
 
 
-    def evaluate_transformer(self, decoder_input_tensor, target_tensor):
+    def evaluate_transformer(self, encoder_input, decoder_input_tensor, target_tensor):
         self.model.eval()
 
         # tensors to device
-        target_tensor = target_tensor.to(self.device).double()
+        encoder_input = encoder_input.to(self.device).double()
         decoder_input = decoder_input_tensor.to(self.device).double()
+        target_tensor = target_tensor.to(self.device).double()
 
         # determine loss and accuracy
         output = self.model(decoder_input)
         loss = self.criterion(output, target_tensor)
-        acc = self.get_accuracy(output, target_tensor, 100000).to('cpu')
+        acc = self.get_accuracy(output, target_tensor).to('cpu')
 
         return loss.item(), acc
 
 
-    def get_accuracy(self, output, target, scaling_factor):
-        acc = torch.mean((output - target) * scaling_factor, [0, 1])
+    def get_accuracy(self, output, target):
+        acc = torch.mean((output - target) * self.asset_scaling, [0, 1])
         return acc
 
 
@@ -127,14 +131,18 @@ class Trainer():
             'optim_name': self.optim_name,
             'optim_lr': self.optim_lr,
             # Loss
-            'loss_name': self.loss_name
+            'loss_name': self.loss_name,
+            # Asset scaling factor
+            'asset_scaling': self.asset_scaling
         }, os.path.join('savedFiles', modelname + '.pt'))
     
+
     def load_checkpoint(modelname):
         if os.path.isfile(os.path.join('savedFiles', modelname + '.pt')):
             return torch.load(os.path.join('savedFiles', modelname + '.pt'))
         else:
             return None
+
 
     def load_training(self, modelname):
         checkpoint = Trainer.load_checkpoint(modelname)
@@ -148,15 +156,16 @@ class Trainer():
     def create_trainer(params):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
-        input_feature_size = params['input_feature_size']
-        output_feature_size = params['output_feature_size']
+        feature_size = params['feature_size']
         n_heads = params['n_heads']
+        num_encoder_layers = params['num_encoder_layers']
         num_decoder_layers = params['num_decoder_layers']
         optim_lr = params['optim_lr']
         optim_name = params['optim_name']
         loss_name = params['loss_name']
+        asset_scaling = params['asset_scaling']
 
-        model = TransformerModel(input_feature_size=input_feature_size, output_feature_size=output_feature_size, n_heads=n_heads, num_decoder_layers=num_decoder_layers, device=device).to(device)
+        model = TransformerModel(feature_size=feature_size, n_heads=n_heads, num_encoder_layers=num_encoder_layers, num_decoder_layers=num_decoder_layers, device=device).to(device)
         optimizer = None
         criterion = None
 
@@ -166,9 +175,9 @@ class Trainer():
         if loss_name == 'MSELoss':
             criterion = nn.MSELoss()
 
-        return Trainer(model=model, optimizer=optimizer, scheduler=None, criterion=criterion, optim_lr=optim_lr, optim_name=optim_name, loss_name=loss_name, device=device)
+        return Trainer(model=model, optimizer=optimizer, scheduler=None, criterion=criterion, optim_lr=optim_lr, optim_name=optim_name, loss_name=loss_name, asset_scaling=asset_scaling, device=device)
 
 
 class HelperFunctions():
-    def __init__(self, model, optimizer, scheduler, criterion, optim_lr, optim_name, loss_name, device):
+    def __init__(self):
         self = self
