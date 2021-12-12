@@ -9,8 +9,8 @@ from transformerModel import Trainer, TransformerModel
 
 
 def data_preprocessing(xbtusd_data):
-    train_sequences = xbtusd_data.head(math.floor(len(xbtusd_data) * 0.8))
-    val_sequences = xbtusd_data.tail(math.ceil(len(xbtusd_data) * 0.2))
+    train_sequences = xbtusd_data.head(math.floor(len(xbtusd_data) * 0.98))
+    val_sequences = xbtusd_data.tail(math.ceil(len(xbtusd_data) * 0.02))
     train_ds = CustomDataset(train_sequences)
     val_ds = CustomDataset(val_sequences)
     train_dl = DataLoader(train_ds, batch_size=128, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True)
@@ -21,18 +21,19 @@ def data_preprocessing(xbtusd_data):
 
 def main():
     eval_mode = False
-    load_model = True
-    model_name = 'trained'
+    load_model = False
+    model_name = 'split98-2'
+    #model_name = 'trained copy_0-0004_0-0037'
 
     # Hyperparameters
     params = {
         # Model
         'input_feature_size': 4,
         'output_feature_size': 4,
-        'n_heads': 8,
-        'num_decoder_layers': 4,
+        'n_heads': 2,
+        'num_decoder_layers': 1,
         # Optim
-        'optim_name': 'Adam',        
+        'optim_name': 'Adam',
         'optim_lr': 0.0001,
         # Loss
         'loss_name': 'MSELoss'
@@ -58,6 +59,7 @@ def main():
             # Train
             loss = []
             acc = []
+
             for decoder_input, expected_output in train_dl:
                 batch_loss, batch_acc = trainer.train_transformer(decoder_input, expected_output)
                 loss.append(batch_loss)
@@ -68,6 +70,8 @@ def main():
 
             # Eval
             loss = []
+            acc = []
+
             for decoder_input, expected_output in val_dl:
                 batch_loss, batch_acc = trainer.evaluate_transformer(decoder_input, expected_output)
                 loss.append(batch_loss)
@@ -85,7 +89,7 @@ def main():
         for decoder_input, expected_output in val_dl:
                 batch_loss, batch_acc = trainer.evaluate_transformer(decoder_input, expected_output)
                 loss.append(batch_loss)
-                acc.append(batch_acc)
+                acc.append(batch_acc.detach())
             
         print(f'val_loss: {sum(loss) / len(loss)}, val_acc: {(sum(acc) / len(acc)).tolist()}')
 
