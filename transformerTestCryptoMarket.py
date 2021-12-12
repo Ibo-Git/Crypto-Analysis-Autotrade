@@ -13,8 +13,8 @@ def data_preprocessing(xbtusd_data):
     val_sequences = xbtusd_data.tail(math.ceil(len(xbtusd_data) * 0.2))
     train_ds = CustomDataset(train_sequences)
     val_ds = CustomDataset(val_sequences)
-    train_dl = DataLoader(train_ds, batch_size=128, shuffle=True, num_workers=4, pin_memory=True, persistent_workers=True)
-    val_dl = DataLoader(val_ds, batch_size=128, shuffle=True, num_workers=4, pin_memory=True, persistent_workers=True)
+    train_dl = DataLoader(train_ds, batch_size=128, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True)
+    val_dl = DataLoader(val_ds, batch_size=128, shuffle=False, num_workers=8, pin_memory=True, persistent_workers=True)
     return train_dl, val_dl
 
 
@@ -26,18 +26,41 @@ def main():
     train_dl, val_dl = data_preprocessing(xbtusd_data)
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = TransformerModel(input_feature_size=4, output_feature_size=4, n_heads=2, num_decoder_layers=2, device=device).to(device)
+    model = TransformerModel(input_feature_size=4, output_feature_size=4, n_heads=4, num_decoder_layers=2, device=device).to(device)
     optimizer = optim.Adam(model.parameters(), lr=0.0001)
     criterion = nn.MSELoss()
     trainer = Trainer(model=model, optimizer=optimizer, scheduler=None, criterion=criterion, device=device)
+
+    eval_mode = False
+    model_name = 'test_2'
     
-    
-    for epoch in range(1000):
-        for decoder_input, expected_output in train_dl:
-            loss = trainer.train_transformer(decoder_input, expected_output)
-            print(loss)
+    if not eval_mode:
+        for _ in range(1000):
+            # Train
+            loss = []
+
+            for decoder_input, expected_output in train_dl:
+                loss.append(trainer.train_transformer(decoder_input, expected_output))
+            
+            print(f'train_loss: {sum(loss) / len(loss)}')
+            trainer.save_training(model_name)
+
+            # Eval
+            loss = []
+            for decoder_input, expected_output in val_dl:
+                loss.append(trainer.evaluate_transformer(decoder_input, expected_output))
+            
+            print(f'val_loss: {sum(loss) / len(loss)}')
+    else:        
+        loss = []
+        trainer.load_training(model_name)
+
         for decoder_input, expected_output in val_dl:
-            loss = trainer.evaluate_transformer(decoder_input, expected_output)
+            loss.append(trainer.evaluate_transformer(decoder_input, expected_output))
+        
+        print(sum(loss) / len(loss))
+
+        
 
 if __name__ == '__main__':
     main()

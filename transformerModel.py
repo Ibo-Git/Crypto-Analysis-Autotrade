@@ -55,9 +55,6 @@ class Trainer():
 
 
     def train_transformer(self, decoder_input, target_tensor):
-        # load model
-        Trainer.load_training(self.model, self.optimizer, 'test')
-        # set mode
         self.model.train()
         self.model = self.model.double()
         # tensors to device
@@ -67,7 +64,6 @@ class Trainer():
         # backpropagation
         self.optimizer.zero_grad()
         output = self.model(decoder_input)
-        print(target_tensor - output.data)
         loss = self.criterion(output, target_tensor)
         loss.backward()
         self.optimizer.step()
@@ -76,12 +72,12 @@ class Trainer():
 
 
     def evaluate_transformer(self, decoder_input_tensor, target_tensor):
-        # set mode
         self.model.eval()
+        self.model = self.model.double()
 
         # tensors to device
-        target_tensor = target_tensor.to(self.device)
-        decoder_input = decoder_input_tensor.to(self.device)
+        target_tensor = target_tensor.to(self.device).double()
+        decoder_input = decoder_input_tensor.to(self.device).double()
 
         # determine loss and accuracy
         output = self.model(decoder_input)
@@ -102,26 +98,24 @@ class Trainer():
 
 
     # Saving & Loading a General Checkpoint for Inference and/or Resuming Training
-    def save_training(model, optimizer, loss, modelname):
+    def save_training(self, modelname):
         if not os.path.isdir('savedFiles'):
             os.makedirs('savedFiles')
+            
         if not os.path.isfile(os.path.join('savedFiles', modelname + '.pt')):
             open(os.path.join('savedFiles', modelname + '.pt'), 'w')
 
         torch.save({
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'loss': loss,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict()
         }, os.path.join('savedFiles', modelname + '.pt'))
     
 
-    def load_training(model, optimizer, modelname):
+    def load_training(self, modelname):
         if os.path.isfile(os.path.join('savedFiles', modelname + '.pt')):
             checkpoint = torch.load(os.path.join('savedFiles', modelname + '.pt'))
-            model.load_state_dict(checkpoint['model_state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            loss = checkpoint['loss'] # useless, is not returned
-            model.train()
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         else:
             print('Model to load does not exist.')
 
