@@ -57,31 +57,37 @@ def main():
         for _ in range(1000):
             # Train
             loss = []
-
+            acc = []
             for decoder_input, expected_output in train_dl:
-                loss.append(trainer.train_transformer(decoder_input, expected_output))
-            
-            print(f'train_loss: {sum(loss) / len(loss)}')
+                batch_loss, batch_acc = trainer.train_transformer(decoder_input, expected_output)
+                loss.append(batch_loss)
+                acc.append(batch_acc)
+
+            print(f'train_loss: {sum(loss) / len(loss)}, train_acc: {(sum(acc) / len(acc)).tolist()}')
             trainer.save_training(model_name)
 
             # Eval
             loss = []
             for decoder_input, expected_output in val_dl:
-                loss.append(trainer.evaluate_transformer(decoder_input, expected_output))
+                batch_loss, batch_acc = trainer.evaluate_transformer(decoder_input, expected_output)
+                loss.append(batch_loss)
+                acc.append(batch_acc)
             
-            print(f'val_loss: {sum(loss) / len(loss)}')
+            print(f'val_loss: {sum(loss) / len(loss)}, val_acc: {(sum(acc) / len(acc)).tolist()}')
     else:
         checkpoint = Trainer.load_checkpoint(model_name)
         trainer = Trainer.create_trainer(params=checkpoint)
         trainer.load_training(model_name)
 
         loss = []
+        acc = []
 
         for decoder_input, expected_output in val_dl:
-            loss.append(trainer.evaluate_transformer(decoder_input, expected_output))
-        
-        print(sum(loss) / len(loss))
-
+                batch_loss, batch_acc = trainer.evaluate_transformer(decoder_input, expected_output)
+                loss.append(batch_loss)
+                acc.append(batch_acc)
+            
+        print(f'val_loss: {sum(loss) / len(loss)}, val_acc: {(sum(acc) / len(acc)).tolist()}')
 
 if __name__ == '__main__':
     main()

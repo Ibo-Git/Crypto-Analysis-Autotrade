@@ -78,7 +78,8 @@ class Trainer():
         loss.backward()
         self.optimizer.step()
         if self.scheduler is not None: self.scheduler.step()
-        return loss.item()
+        acc = self.get_accuracy(output, target_tensor, 100000).to('cpu')
+        return loss.item(), acc
 
 
     def evaluate_transformer(self, decoder_input_tensor, target_tensor):
@@ -91,14 +92,14 @@ class Trainer():
         # determine loss and accuracy
         output = self.model(decoder_input)
         loss = self.criterion(output, target_tensor)
-        #acc = self.get_accuracy(output, target_tensor)
+        acc = self.get_accuracy(output, target_tensor, 100000).to('cpu')
 
-        return loss.item()
+        return loss.item(), acc
 
 
-    def get_accuracy(self, output, target):
-
-        return ('Not yet implemented!')
+    def get_accuracy(self, output, target, scaling_factor):
+        acc = torch.mean((output - target) * scaling_factor, [0, 1])
+        return acc
 
 
     def set_learningrate(self, new_lr):
