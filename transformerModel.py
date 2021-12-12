@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import math 
 import os
+import torch.optim as optim
 
 class PositionalEncoding(nn.Module):
 
@@ -24,13 +25,20 @@ class PositionalEncoding(nn.Module):
 class TransformerModel(nn.Module):
     def __init__(self, input_feature_size, output_feature_size, n_heads, num_decoder_layers, device):
         super(TransformerModel, self).__init__()
+        self.input_feature_size = input_feature_size
+        self.output_feature_size = output_feature_size
+        self.n_heads = n_heads
+        self.num_decoder_layers = num_decoder_layers
         self.device = device
+
         self.fc_layer_1 = nn.Linear(input_feature_size, 512)
         self.positional_encoder = PositionalEncoding(d_model=512, dropout=0.1)
         decoder_layer = nn.TransformerEncoderLayer(d_model=512, nhead=n_heads, batch_first=True)
         self.transformer_decoder = nn.TransformerEncoder(decoder_layer, num_decoder_layers)
         self.fc_layer_2 = nn.Linear(512, output_feature_size)
         self.softmax = nn.Softmax(dim=1) # scale output in time between [0, 1]
+
+        self.double()
 
 
     def forward(self, tgt):
@@ -46,17 +54,19 @@ class TransformerModel(nn.Module):
 
     
 class Trainer():
-    def __init__(self, model, optimizer, scheduler, criterion, device):
+    def __init__(self, model, optimizer, scheduler, criterion, optim_lr, optim_name, loss_name, device):
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler 
+        self.optim_lr = optim_lr
         self.criterion = criterion
+        self.optim_name = optim_name
+        self.loss_name = loss_name
         self.device = device
 
 
     def train_transformer(self, decoder_input, target_tensor):
         self.model.train()
-        self.model = self.model.double()
         # tensors to device
         target_tensor = target_tensor.to(self.device).double()
         decoder_input = decoder_input.to(self.device).double()
@@ -73,7 +83,6 @@ class Trainer():
 
     def evaluate_transformer(self, decoder_input_tensor, target_tensor):
         self.model.eval()
-        self.model = self.model.double()
 
         # tensors to device
         target_tensor = target_tensor.to(self.device).double()
@@ -97,7 +106,6 @@ class Trainer():
             g['lr'] = new_lr
 
 
-    # Saving & Loading a General Checkpoint for Inference and/or Resuming Training
     def save_training(self, modelname):
         if not os.path.isdir('savedFiles'):
             os.makedirs('savedFiles')
@@ -106,16 +114,58 @@ class Trainer():
             open(os.path.join('savedFiles', modelname + '.pt'), 'w')
 
         torch.save({
+            # States
             'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict()
+            'optimizer_state_dict': self.optimizer.state_dict(),
+
+            # Hyperparameters
+            # Model
+            'input_feature_size': self.model.input_feature_size,
+            'output_feature_size': self.model.output_feature_size,
+            'n_heads': self.model.n_heads,
+            'num_decoder_layers': self.model.num_decoder_layers,
+            # Optim
+            'optim_name': self.optim_name,
+            'optim_lr': self.optim_lr,
+            # Loss
+            'loss_name': self.loss_name
         }, os.path.join('savedFiles', modelname + '.pt'))
     
+    def load_checkpoint(modelname):
+        if os.path.isfile(os.path.join('savedFiles', modelname + '.pt')):
+            return torch.load(os.path.join('savedFiles', modelname + '.pt'))
+        else:
+            return None
 
     def load_training(self, modelname):
-        if os.path.isfile(os.path.join('savedFiles', modelname + '.pt')):
-            checkpoint = torch.load(os.path.join('savedFiles', modelname + '.pt'))
+        checkpoint = Trainer.load_checkpoint(modelname)
+        if checkpoint:
             self.model.load_state_dict(checkpoint['model_state_dict'])
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         else:
             print('Model to load does not exist.')
+
+
+    def create_trainer(params):
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
+        input_feature_size = params['input_feature_size']
+        output_feature_size = params['output_feature_size']
+        n_heads = params['n_heads']
+        num_decoder_layers = params['num_decoder_layers']
+        optim_lr = params['optim_lr']
+        optim_name = params['optim_name']
+        loss_name = params['loss_name']
+
+        model = TransformerModel(input_feature_size=input_feature_size, output_feature_size=output_feature_size, n_heads=n_heads, num_decoder_layers=num_decoder_layers, device=device).to(device)
+        optimizer = None
+        criterion = None
+
+        if optim_name == 'Adam':
+            optimizer = optim.Adam(model.parameters(), lr=optim_lr)
+
+        if loss_name == 'MSELoss':
+            criterion = nn.MSELoss()
+
+        return Trainer(model=model, optimizer=optimizer, scheduler=None, criterion=criterion, optim_lr=optim_lr, optim_name=optim_name, loss_name=loss_name, device=device)
 
