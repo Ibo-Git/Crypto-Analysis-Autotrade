@@ -11,24 +11,24 @@ from transformerModel import Trainer, TransformerModel
 
 
 def data_preprocessing(xbtusd_data, device, encoder_input_length, prediction_length):
-    train_sequences = xbtusd_data.head(math.floor(len(xbtusd_data) * 0.8))
-    val_sequences = xbtusd_data.tail(math.ceil(len(xbtusd_data) * 0.2))
+    train_sequences = xbtusd_data.head(math.floor(len(xbtusd_data) * 0.9))
+    val_sequences = xbtusd_data.tail(math.ceil(len(xbtusd_data) * 0.1))
     train_ds = CustomDataset(train_sequences, encoder_input_length, prediction_length)
     val_ds = CustomDataset(val_sequences, encoder_input_length, prediction_length)
     if device.type == 'cpu':
         train_dl = DataLoader(train_ds, batch_size=128, shuffle=True, num_workers=0, pin_memory=True, persistent_workers=False)
         val_dl = DataLoader(val_ds, batch_size=128, shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
     else:
-        train_dl = DataLoader(train_ds, batch_size=128, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True)
-        val_dl = DataLoader(val_ds, batch_size=128, shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
+        train_dl = DataLoader(train_ds, batch_size=512, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True)
+        val_dl = DataLoader(val_ds, batch_size=512, shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
     return train_dl, val_dl
 
 
 
 def main():
     eval_mode = False
-    load_model = False
-    model_name = 'trained'
+    load_model = True
+    model_name = 'trained_small3'
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     # Hyperparameters
@@ -36,10 +36,10 @@ def main():
         # Model
         'feature_size': 4,
         'n_heads': 8,
-        'num_encoder_layers': 4,
-        'num_decoder_layers': 4,
+        'num_encoder_layers': 2,
+        'num_decoder_layers': 2,
         # Optim
-        'optim_name': 'Adam',        
+        'optim_name': 'Adam',
         'optim_lr': 0.0001,
         # Loss
         'loss_name': 'MSELoss',
@@ -50,8 +50,8 @@ def main():
     xbtusd_data = yf.download(tickers='BTC-USD', period = 'max', interval = '1d')
     xbtusd_data = xbtusd_data / params['asset_scaling']
     
-    encoder_input_length = 50
-    prediction_length = 1
+    encoder_input_length = 30
+    prediction_length = 5
 
     train_dl, val_dl = data_preprocessing(xbtusd_data, device, encoder_input_length, prediction_length)
         
