@@ -28,6 +28,13 @@ class TransformerModel(nn.Module):
         super(TransformerModel, self).__init__()
         self.device = device
 
+        # Add to model so that save can access them
+        self.feature_size = feature_size
+        self.n_heads = n_heads
+        self.num_encoder_layers = num_encoder_layers
+        self.num_decoder_layers = num_decoder_layers
+
+        # Create model
         self.fc_layer_src = nn.Linear(feature_size, 512)
         self.fc_layer_tgt = nn.Linear(feature_size, 512)
         self.positional_encoder_src = PositionalEncoding(d_model=512, dropout=0.1)
@@ -56,8 +63,8 @@ class Trainer():
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler 
-        self.optim_lr = optim_lr
         self.criterion = criterion
+        self.optim_lr = optim_lr
         self.optim_name = optim_name
         self.loss_name = loss_name
         self.asset_scaling = asset_scaling
@@ -78,7 +85,7 @@ class Trainer():
         loss.backward()
         self.optimizer.step()
         if self.scheduler is not None: self.scheduler.step()
-        acc = self.get_accuracy(output, target_tensor).to('cpu')
+        acc = self.get_accuracy(output, target_tensor).to('cpu').detach()
         
         return loss.item(), acc
 
@@ -92,15 +99,15 @@ class Trainer():
         target_tensor = target_tensor.to(self.device).double()
 
         # determine loss and accuracy
-        output = self.model(decoder_input)
+        output = self.model(encoder_input, decoder_input)
         loss = self.criterion(output, target_tensor)
-        acc = self.get_accuracy(output, target_tensor).to('cpu')
+        acc = self.get_accuracy(output, target_tensor).to('cpu').detach()
 
         return loss.item(), acc
 
 
     def get_accuracy(self, output, target):
-        acc = torch.mean((output - target) * self.asset_scaling, [0, 1])
+        acc = torch.mean(torch.abs(output - target) * self.asset_scaling, [0, 1])
         return acc
 
 
@@ -123,9 +130,9 @@ class Trainer():
 
             # Hyperparameters
             # Model
-            'input_feature_size': self.model.input_feature_size,
-            'output_feature_size': self.model.output_feature_size,
+            'feature_size': self.model.feature_size,
             'n_heads': self.model.n_heads,
+            'num_encoder_layers': self.model.num_encoder_layers,
             'num_decoder_layers': self.model.num_decoder_layers,
             # Optim
             'optim_name': self.optim_name,

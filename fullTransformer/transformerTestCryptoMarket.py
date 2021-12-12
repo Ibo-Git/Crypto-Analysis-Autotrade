@@ -27,7 +27,7 @@ def data_preprocessing(xbtusd_data, device):
 
 def main():
     eval_mode = False
-    load_model = False
+    load_model = True
     model_name = 'trained'
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
@@ -35,9 +35,9 @@ def main():
     params = {
         # Model
         'feature_size': 4,
-        'n_heads': 8,
-        'num_encoder_layers': 4,
-        'num_decoder_layers': 4,
+        'n_heads': 4,
+        'num_encoder_layers': 1,
+        'num_decoder_layers': 1,
         # Optim
         'optim_name': 'Adam',        
         'optim_lr': 0.0001,
@@ -76,6 +76,8 @@ def main():
 
             # Eval
             loss = []
+            acc = []
+
             for encoder_input, decoder_input, expected_output in val_dl:
                 batch_loss, batch_acc = trainer.evaluate_transformer(encoder_input, decoder_input, expected_output)
                 loss.append(batch_loss)
