@@ -11,8 +11,10 @@ from transformerModel import Trainer, TransformerModel
 
 
 def data_preprocessing(xbtusd_data, device, encoder_input_length, prediction_length):
-    train_sequences = xbtusd_data.head(math.floor(len(xbtusd_data) * 0.9))
-    val_sequences = xbtusd_data.tail(math.ceil(len(xbtusd_data) * 0.1))
+    data = feature_extraction(xbtusd_data, ['High', 'Low', 'Close', 'Open'])
+    train_sequences = data[0:math.floor(len(data) * 0.9)]
+    val_sequences = data[math.floor(len(data) * 0.9):]
+
     train_ds = CustomDataset(train_sequences, encoder_input_length, prediction_length)
     val_ds = CustomDataset(val_sequences, encoder_input_length, prediction_length)
     if device.type == 'cpu':
@@ -23,13 +25,17 @@ def data_preprocessing(xbtusd_data, device, encoder_input_length, prediction_len
         val_dl = DataLoader(val_ds, batch_size=512, shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
     return train_dl, val_dl
 
-
+def feature_extraction(df, features):
+    data = []
+    for _, row in df.iterrows():
+        data.append([row[feature] for feature in features])
+    return data
 
 def main():
-    eval_mode = False
-    load_model = True
-    model_name = 'trained_small3'
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    eval_mode = False
+    load_model = False
+    model_name = 'trained_small3'
     
     # Hyperparameters
     params = {

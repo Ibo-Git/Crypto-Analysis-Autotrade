@@ -4,6 +4,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from matplotlib.pyplot import plot, show
 
 
 class PositionalEncoding(nn.Module):
@@ -48,6 +49,9 @@ class TransformerModel(nn.Module):
     def forward(self, src, tgt):
         # transformer masks
         tgt_mask = nn.Transformer.generate_square_subsequent_mask(nn.Transformer(), tgt.size(dim=1)).to(self.device) # sequence length
+        #tgt_padding_mask = torch.ones(tgt.shape)
+        #tgt_padding_mask[:, 0:tgt.shape[1] - 1, :] = 0 # sets locations of EOS-token to 1, rest 0
+
         # forward
         src = self.fc_layer_src(src)
         src = self.positional_encoder_src(src)
@@ -107,7 +111,8 @@ class Trainer():
 
 
     def get_accuracy(self, output, target):
-        acc = torch.mean(torch.abs(output - target) * self.asset_scaling, [0, 1])
+        #acc = torch.mean(torch.abs(output - target) [:, 0:target.shape[1] - 1, :] * self.asset_scaling, [0, 1]) # if not used, remove later
+        acc = torch.mean(torch.abs(output - target)  * self.asset_scaling, [0, 1])
         return acc
 
 
