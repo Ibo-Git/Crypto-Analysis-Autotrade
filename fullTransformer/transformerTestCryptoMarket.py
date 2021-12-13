@@ -31,7 +31,7 @@ def data_preprocessing(xbtusd_data, device, encoder_input_length, prediction_len
     else:
         train_dl = DataLoader(train_ds, batch_size=512, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True)
         val_dl = DataLoader(val_ds, batch_size=512, shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
-    return train_dl, val_dl
+    return train_dl, val_dl, torch.tensor(train_sequences).unsqueeze(0), torch.tensor(val_sequences).unsqueeze(0)
 
 
 def main():
@@ -62,7 +62,7 @@ def main():
     encoder_input_length = 30
     prediction_length = 5
 
-    train_dl, val_dl = data_preprocessing(xbtusd_data, device, encoder_input_length, prediction_length)
+    train_dl, val_dl, train_sequences, val_sequences = data_preprocessing(xbtusd_data, device, encoder_input_length, prediction_length)
         
     trainer = None
 
@@ -85,6 +85,8 @@ def main():
                 batch_loss, batch_acc = trainer.train_transformer(encoder_input, decoder_input, expected_output)
                 loss.append(batch_loss)
                 acc.append(batch_acc)
+
+                trainer.plot_prediction_vs_target(train_sequences[:, 0:1000, :], train_sequences[:, 1000:1010, :])
 
             print(f'train_loss: {sum(loss) / len(loss)}, train_acc: {(sum(acc) / len(acc)).tolist()}')
             trainer.save_training(model_name)

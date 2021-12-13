@@ -4,7 +4,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from matplotlib.pyplot import plot, show
+import matplotlib.pyplot as plt
 
 
 class PositionalEncoding(nn.Module):
@@ -190,6 +190,24 @@ class Trainer():
         return Trainer(model=model, optimizer=optimizer, scheduler=None, criterion=criterion, optim_lr=optim_lr, optim_name=optim_name, loss_name=loss_name, asset_scaling=asset_scaling, device=device)
 
 
-class HelperFunctions():
-    def plot_prediction(output, target):
-        return
+    def plot_prediction_vs_target(self, encoder_input, target_sequence):
+        output_sequence = self.predict_output(encoder_input, target_sequence)
+        output_sequence = (output_sequence[:, :, 0] * self.asset_scaling).detach().tolist()[0]
+        target_sequence = (target_sequence[:, :, 0] * self.asset_scaling).detach().tolist()[0]
+        plt.plot(range(len(output_sequence)), output_sequence, label = 'Prediction')
+        plt.plot(range(len(target_sequence)), target_sequence, label = 'Target')
+        plt.xlabel('Time')
+        plt.ylabel('Bitcoin value in USD')
+        plt.title('Prediction vs Target')
+        plt.legend()
+        plt.show()
+    
+    def predict_output(self, encoder_input, target_sequence):
+        decoder_input = -torch.ones(encoder_input.shape[-1]).unsqueeze(0).unsqueeze(0).double()
+        output =  torch.tensor([]).double()
+        for n in range(target_sequence.shape[1]):
+            output = self.model(encoder_input, torch.cat((decoder_input, output), 1)) # encoder_input [1, 1000, 4]
+        
+        return output
+
+        
