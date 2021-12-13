@@ -191,5 +191,5 @@ class Trainer():
 
 
 class HelperFunctions():
-    def __init__(self):
-        self = self
+    def plot_prediction(output, target):
+        return

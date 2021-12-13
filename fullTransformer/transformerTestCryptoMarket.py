@@ -11,7 +11,15 @@ from transformerModel import Trainer, TransformerModel
 
 
 def data_preprocessing(xbtusd_data, device, encoder_input_length, prediction_length):
-    data = feature_extraction(xbtusd_data, ['High', 'Low', 'Close', 'Open'])
+    data = []
+    for index, row in xbtusd_data.iterrows():
+        data.append([
+            row['Open'], 
+            row['High'], 
+            row['Low'], 
+            row['Close']
+        ])
+
     train_sequences = data[0:math.floor(len(data) * 0.9)]
     val_sequences = data[math.floor(len(data) * 0.9):]
 
@@ -25,11 +33,6 @@ def data_preprocessing(xbtusd_data, device, encoder_input_length, prediction_len
         val_dl = DataLoader(val_ds, batch_size=512, shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
     return train_dl, val_dl
 
-def feature_extraction(df, features):
-    data = []
-    for _, row in df.iterrows():
-        data.append([row[feature] for feature in features])
-    return data
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
