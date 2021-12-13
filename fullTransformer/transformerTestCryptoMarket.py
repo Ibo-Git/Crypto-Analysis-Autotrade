@@ -60,7 +60,7 @@ def main():
     xbtusd_data = xbtusd_data / params['asset_scaling']
     
     encoder_input_length = 30
-    prediction_length = 5
+    prediction_length = 1
 
     train_dl, val_dl, train_sequences, val_sequences = data_preprocessing(xbtusd_data, device, encoder_input_length, prediction_length)
         
@@ -77,6 +77,8 @@ def main():
         
         for epoch in range(1000):
             print(f' --- Epoch: {epoch + 1}')
+            
+            trainer.predict_output_from_sequence(val_sequences, encoder_input_length, prediction_length)
 
             # Train
             loss = []
@@ -129,5 +131,7 @@ def main():
         #val_target_for_plot = val_sequences[:, n + encoder_input_length:n + encoder_input_length + prediction_length, :]
         #trainer.plot_prediction_vs_target(val_encoder_input_for_plot, val_target_for_plot)
 
+        trainer.plot_prediction_vs_target(val_sequences, encoder_input_length, prediction_length)
+        
 if __name__ == '__main__':
     main()

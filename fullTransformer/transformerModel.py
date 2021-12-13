@@ -190,26 +190,17 @@ class Trainer():
         return Trainer(model=model, optimizer=optimizer, scheduler=None, criterion=criterion, optim_lr=optim_lr, optim_name=optim_name, loss_name=loss_name, asset_scaling=asset_scaling, device=device)
 
 
-    def plot_prediction_vs_target(self, encoder_input, target_sequence):
-
-        # could be important for the future, if not, delete
-        #output = []
-        #for n in range(train_sequences.shape[1] - encoder_input_length):
-        #    encoder_input_for_plot = train_sequences[:, n:n + encoder_input_length, :]
-        #    target_for_plot = train_sequences[:, n + encoder_input_length:n + encoder_input_length + prediction_length, :]
-        #    output.append(trainer.predict_output(encoder_input_for_plot, target_for_plot))
-
-        output_sequence = self.predict_output(encoder_input, target_sequence)
-        output_sequence = (output_sequence[:, :, 0] * self.asset_scaling).detach().tolist()[0]
-        target_sequence = (target_sequence[:, :, 0] * self.asset_scaling).detach().tolist()[0]
-        plt.plot(range(len(output_sequence)), output_sequence, label = 'Prediction')
-        plt.plot(range(len(target_sequence)), target_sequence, label = 'Target')
+    def plot_prediction_vs_target(self, sequences, encoder_input_length, prediction_length):
+        output_for_plot, target_for_plot = self.predict_output_from_sequence(sequences, encoder_input_length, prediction_length)
+        plt.plot(range(len(output_for_plot)), output_for_plot, label = 'Prediction')
+        plt.plot(range(len(target_for_plot)), target_for_plot, label = 'Target')
         plt.xlabel('Time')
         plt.ylabel('Bitcoin value in USD')
         plt.title('Prediction vs Target')
         plt.legend()
         plt.show()
     
+
     def predict_output(self, encoder_input, target_sequence):
         decoder_input = -torch.ones(encoder_input.shape[-1]).unsqueeze(0).unsqueeze(0).double()
         output =  torch.tensor([]).double()
@@ -218,4 +209,19 @@ class Trainer():
         
         return output
 
+    # takes entire validation sequence, splits it into multiple sequences and predicts one day for each split 
+    def predict_output_from_sequence(self, sequences, encoder_input_length, prediction_length):
+        output = []
+
+        for n in range(sequences.shape[1] - encoder_input_length - prediction_length):
+            encoder_input_for_plot = sequences[:, n:n + encoder_input_length, :]
+            target_for_plot = sequences[:, n + encoder_input_length:n + encoder_input_length + prediction_length, :]
+            output.append(self.predict_output(encoder_input_for_plot, target_for_plot))
+
+        output = torch.cat(output)
+        output_for_plot = (output[:, :, 0] * self.asset_scaling).detach().tolist()[0]
+        target_for_plot = (target_for_plot[:, :, 0] * self.asset_scaling).detach().tolist()[0]
+
+        return output_for_plot, target_for_plot
+        
         
