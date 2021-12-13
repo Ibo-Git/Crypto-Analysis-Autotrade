@@ -217,7 +217,7 @@ class Trainer():
         for n in range(sequences.shape[1] - encoder_input_length - prediction_length):
             encoder_input_for_plot = sequences[:, n:n + encoder_input_length, :]
             target_for_plot = sequences[:, n + encoder_input_length:n + encoder_input_length + prediction_length, :]
-            output.append(self.predict_output(encoder_input_for_plot, target_for_plot))
+            output.append(self.predict_output(encoder_input_for_plot, target_for_plot).to('cpu').detach())
             target.append(target_for_plot)
 
         output = torch.cat(output)
