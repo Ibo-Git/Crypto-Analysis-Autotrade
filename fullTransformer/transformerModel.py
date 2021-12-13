@@ -191,6 +191,14 @@ class Trainer():
 
 
     def plot_prediction_vs_target(self, encoder_input, target_sequence):
+
+        # could be important for the future, if not, delete
+        #output = []
+        #for n in range(train_sequences.shape[1] - encoder_input_length):
+        #    encoder_input_for_plot = train_sequences[:, n:n + encoder_input_length, :]
+        #    target_for_plot = train_sequences[:, n + encoder_input_length:n + encoder_input_length + prediction_length, :]
+        #    output.append(trainer.predict_output(encoder_input_for_plot, target_for_plot))
+
         output_sequence = self.predict_output(encoder_input, target_sequence)
         output_sequence = (output_sequence[:, :, 0] * self.asset_scaling).detach().tolist()[0]
         target_sequence = (target_sequence[:, :, 0] * self.asset_scaling).detach().tolist()[0]

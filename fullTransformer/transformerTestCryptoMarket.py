@@ -86,7 +86,11 @@ def main():
                 loss.append(batch_loss)
                 acc.append(batch_acc)
 
-                trainer.plot_prediction_vs_target(train_sequences[:, 0:1000, :], train_sequences[:, 1000:1010, :])
+                output = []
+                for n in range(train_sequences.shape[1] - encoder_input_length):
+                    encoder_input_for_plot = train_sequences[:, n:n + encoder_input_length, :]
+                    target_for_plot = train_sequences[:, n + encoder_input_length:n + encoder_input_length + prediction_length, :]
+                    output.append(trainer.predict_output(encoder_input_for_plot, target_for_plot))
 
             print(f'train_loss: {sum(loss) / len(loss)}, train_acc: {(sum(acc) / len(acc)).tolist()}')
             trainer.save_training(model_name)
@@ -116,6 +120,14 @@ def main():
             
         print(f'val_loss: {sum(loss) / len(loss)}, val_acc: {(sum(acc) / len(acc)).tolist()}')
 
+        #n = 100 # starting index for sequence that is fed into transformer. train_sequences has ~2300 sequences. n + encoder_input_length + prediction_length must be < 2300
+        #train_encoder_input_for_plot = train_sequences[:, n:n + encoder_input_length, :]
+        #train_target_for_plot = train_sequences[:, n + encoder_input_length:n + encoder_input_length + prediction_length, :]
+        #trainer.plot_prediction_vs_target(train_encoder_input_for_plot, train_target_for_plot)
+
+        #val_encoder_input_for_plot = val_sequences[:, n:n + encoder_input_length, :]
+        #val_target_for_plot = val_sequences[:, n + encoder_input_length:n + encoder_input_length + prediction_length, :]
+        #trainer.plot_prediction_vs_target(val_encoder_input_for_plot, val_target_for_plot)
 
 if __name__ == '__main__':
     main()
