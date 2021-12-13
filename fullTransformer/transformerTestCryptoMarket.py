@@ -124,6 +124,7 @@ def main():
         #trainer.plot_prediction_vs_target(val_encoder_input_for_plot, val_target_for_plot)
 
         trainer.plot_prediction_vs_target(val_sequences, encoder_input_length, prediction_length)
+        breakpoint = None
 
 if __name__ == '__main__':
     main()
