@@ -202,8 +202,8 @@ class Trainer():
     
 
     def predict_output(self, encoder_input, target_sequence):
-        decoder_input = -torch.ones(encoder_input.shape[-1]).unsqueeze(0).unsqueeze(0).double()
-        output =  torch.tensor([]).double()
+        decoder_input = -torch.ones(encoder_input.shape[-1]).unsqueeze(0).unsqueeze(0).double().to(self.device)
+        output =  torch.tensor([]).double().to(self.device)
         for n in range(target_sequence.shape[1]):
             output = self.model(encoder_input, torch.cat((decoder_input, output), 1)) # encoder_input [1, 1000, 4]
         
