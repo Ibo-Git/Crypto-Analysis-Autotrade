@@ -212,15 +212,18 @@ class Trainer():
     # takes entire validation sequence, splits it into multiple sequences and predicts one day for each split 
     def predict_output_from_sequence(self, sequences, encoder_input_length, prediction_length):
         output = []
+        target = []
 
         for n in range(sequences.shape[1] - encoder_input_length - prediction_length):
             encoder_input_for_plot = sequences[:, n:n + encoder_input_length, :]
             target_for_plot = sequences[:, n + encoder_input_length:n + encoder_input_length + prediction_length, :]
             output.append(self.predict_output(encoder_input_for_plot, target_for_plot))
+            target.append(target_for_plot)
 
         output = torch.cat(output)
-        output_for_plot = (output[:, :, 0] * self.asset_scaling).detach().tolist()[0]
-        target_for_plot = (target_for_plot[:, :, 0] * self.asset_scaling).detach().tolist()[0]
+        target = torch.cat(target)
+        output_for_plot = (output[:, 0, 0] * self.asset_scaling).detach().tolist()
+        target_for_plot = (target[:, 0, 0] * self.asset_scaling).detach().tolist()
 
         return output_for_plot, target_for_plot
         

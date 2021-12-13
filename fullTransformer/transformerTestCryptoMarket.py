@@ -31,22 +31,22 @@ def data_preprocessing(xbtusd_data, device, encoder_input_length, prediction_len
     else:
         train_dl = DataLoader(train_ds, batch_size=512, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True)
         val_dl = DataLoader(val_ds, batch_size=512, shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
-    return train_dl, val_dl, torch.tensor(train_sequences).unsqueeze(0), torch.tensor(val_sequences).unsqueeze(0)
+    return train_dl, val_dl, torch.tensor(train_sequences).unsqueeze(0).to(device), torch.tensor(val_sequences).unsqueeze(0).to(device)
 
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    eval_mode = False
-    load_model = False
-    model_name = 'trained_small3'
+    eval_mode = True
+    load_model = True
+    model_name = 'large-1'
     
     # Hyperparameters
     params = {
         # Model
         'feature_size': 4,
         'n_heads': 8,
-        'num_encoder_layers': 2,
-        'num_decoder_layers': 2,
+        'num_encoder_layers': 4,
+        'num_decoder_layers': 4,
         # Optim
         'optim_name': 'Adam',
         'optim_lr': 0.0001,
@@ -59,11 +59,11 @@ def main():
     xbtusd_data = yf.download(tickers='BTC-USD', period = 'max', interval = '1d')
     xbtusd_data = xbtusd_data / params['asset_scaling']
     
-    encoder_input_length = 30
+    encoder_input_length = 48
     prediction_length = 1
 
     train_dl, val_dl, train_sequences, val_sequences = data_preprocessing(xbtusd_data, device, encoder_input_length, prediction_length)
-        
+    
     trainer = None
 
     if not eval_mode:
@@ -78,8 +78,6 @@ def main():
         for epoch in range(1000):
             print(f' --- Epoch: {epoch + 1}')
             
-            trainer.predict_output_from_sequence(val_sequences, encoder_input_length, prediction_length)
-
             # Train
             loss = []
             acc = []
