@@ -25,9 +25,9 @@ def data_preprocessing(xbtusd_data, device, split_percent, encoder_input_length,
     train_sequences = data[0:math.floor(len(data) * split_percent)]
     val_sequences = data[math.floor(len(data) * split_percent):]
 
-    train_ds = CustomDataset(train_sequences, device, encoder_input_length, prediction_length)
-    val_ds = CustomDataset(val_sequences, device, encoder_input_length, prediction_length)
-    full_ds = CustomDataset(data, device, encoder_input_length, prediction_length)
+    train_ds = CustomDataset(train_sequences, encoder_input_length, prediction_length)
+    val_ds = CustomDataset(val_sequences, encoder_input_length, prediction_length)
+    full_ds = CustomDataset(data, encoder_input_length, prediction_length)
 
     if device.type == 'cpu':
         train_dl = DataLoader(train_ds, batch_size=128, shuffle=True, num_workers=0, pin_memory=True, persistent_workers=False)
@@ -77,6 +77,7 @@ def main():
 
     train_dl, val_dl, full_dl, list_of_features = data_preprocessing(xbtusd_data, device, split_percent, encoder_input_length, prediction_length)
     
+    # Start Training and / or Evaluation
     trainer = None
 
     if not eval_mode:
@@ -128,7 +129,7 @@ def main():
         print(f'val_loss: {sum(loss) / len(loss)}, val_acc: {(sum(acc) / len(acc)).tolist()}')
 
         trainer.plot_prediction_vs_target(full_dl, split_percent, list_of_features)
-        
+
         breakpoint = None
 
 if __name__ == '__main__':

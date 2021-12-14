@@ -78,6 +78,11 @@ class Trainer():
     def train_transformer(self, encoder_input, decoder_input, target_tensor):
         self.model.train()
 
+        # tensors to device
+        encoder_input = encoder_input.to(self.device)
+        decoder_input = decoder_input.to(self.device)
+        target_tensor = target_tensor.to(self.device)
+
         # backpropagation
         self.optimizer.zero_grad()
         output = self.model(encoder_input, decoder_input)
@@ -93,12 +98,17 @@ class Trainer():
     def evaluate_transformer(self, encoder_input, decoder_input, target_tensor):
         self.model.eval()
 
+        # tensors to device
+        encoder_input = encoder_input.to(self.device)
+        decoder_input = decoder_input.to(self.device)
+        target_tensor = target_tensor.to(self.device)
+
         # determine loss and accuracy
         output = self.model(encoder_input, decoder_input)
-        loss = self.criterion(output, target_tensor)
+        loss = self.criterion(output, target_tensor).item()
         acc = self.get_accuracy(output, target_tensor).to('cpu').detach()
 
-        return loss.item(), acc
+        return loss, acc
 
 
     def get_accuracy(self, output, target):
@@ -182,13 +192,13 @@ class Trainer():
 
 
     def plot_prediction_vs_target(self, dataloader, split_percent, list_of_features):
+
+        # get x and y data for plots
         output_for_plot, target_for_plot = self.one_day_prediction_from_dataloader(dataloader)
-
-
-
-        #plt.plot(range(len(val_output_for_plot)), val_output_for_plot[:, 0, 0], label = 'Prediction')
         x_axis = range(len(output_for_plot))
         train_index = int(split_percent * x_axis[-1])
+        
+        # create subplots for all features
         num_features = output_for_plot.shape[-1]
         num_features_x = num_features - num_features // 2
         num_features_y = num_features // 2
@@ -208,47 +218,50 @@ class Trainer():
   
         fig.tight_layout()
         plt.show()
-
     
-    # takes entire validation sequence, splits it into multiple sequences and predicts one day for each split 
-    def predict_output_from_sequence(self, sequences, encoder_input_length, prediction_length):
-        output = []
-        target = []
-
-        for n in range(sequences.shape[1] - encoder_input_length - prediction_length):
-            encoder_input_for_plot = sequences[:, n:n + encoder_input_length, :]
-            target_for_plot = sequences[:, n + encoder_input_length:n + encoder_input_length + prediction_length, :]
-            output.append(self.predict_output(encoder_input_for_plot, target_for_plot).to('cpu').detach())
-            target.append(target_for_plot)
-
-        output = torch.cat(output)
-        target = torch.cat(target)
-        output_for_plot = (output[:, 0, 0] * self.asset_scaling).tolist()
-        target_for_plot = (target[:, 0, 0] * self.asset_scaling).tolist()
-
-        return output_for_plot, target_for_plot
-
-
-    def predict_output(self, encoder_input, target_sequence):
-        decoder_input = -torch.ones(encoder_input.shape[-1]).unsqueeze(0).unsqueeze(0).double().to(self.device)
-        output =  torch.tensor([]).double().to(self.device)
-
-        for n in range(target_sequence.shape[1]):
-            output = self.model(encoder_input, torch.cat((decoder_input, output), 1)) # encoder_input [1, 1000, 4]
-        
-        return output
-
     
     def one_day_prediction_from_dataloader(self,  dataloader):
         output_for_plot =  torch.tensor([])
         target_for_plot = torch.tensor([])
 
         for encoder_input, decoder_input, target in dataloader:
-            output = self.model(encoder_input, decoder_input).to('cpu').detach()
-            output_for_plot = torch.cat((output_for_plot, output))
-            target_for_plot = torch.cat((target_for_plot, target))
+            output = self.model(encoder_input.to(self.device), decoder_input.to(self.device))
+            output_for_plot = torch.cat((output_for_plot, output.to('cpu').detach()))
+            target_for_plot = torch.cat((target_for_plot, target.to('cpu').detach()))
  
         return output_for_plot * self.asset_scaling, target_for_plot * self.asset_scaling
+
+    
+    ## takes entire validation sequence, splits it into multiple sequences and predicts one day for each split 
+    #def predict_output_from_sequence(self, sequences, encoder_input_length, prediction_length):
+    #    output = []
+    #    target = []
+
+    #    for n in range(sequences.shape[1] - encoder_input_length - prediction_length):
+    #        encoder_input_for_plot = sequences[:, n:n + encoder_input_length, :]
+    #        target_for_plot = sequences[:, n + encoder_input_length:n + encoder_input_length + prediction_length, :]
+    #        output.append(self.predict_output(encoder_input_for_plot, target_for_plot).to('cpu').detach())
+    #        target.append(target_for_plot)
+
+    #    output = torch.cat(output)
+    #    target = torch.cat(target)
+    #    output_for_plot = (output[:, 0, 0] * self.asset_scaling).tolist()
+    #    target_for_plot = (target[:, 0, 0] * self.asset_scaling).tolist()
+
+    #    return output_for_plot, target_for_plot
+
+
+    #def predict_output(self, encoder_input, target_sequence):
+    #    decoder_input = -torch.ones(encoder_input.shape[-1]).unsqueeze(0).unsqueeze(0).double().to(self.device)
+    #    output =  torch.tensor([]).double().to(self.device)
+
+    #    for n in range(target_sequence.shape[1]):
+    #        output = self.model(encoder_input, torch.cat((decoder_input, output), 1)) # encoder_input [1, 1000, 4]
+    #    
+    #    return output
+
+    
+
     
         
         
