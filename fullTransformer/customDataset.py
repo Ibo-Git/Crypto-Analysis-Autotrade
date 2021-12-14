@@ -5,7 +5,9 @@ from torch.utils.data import Dataset
 
 
 class CustomDataset(Dataset):
-    def __init__(self, data, encoder_input_length=50, prediction_length=3):
+    def __init__(self, data, device, encoder_input_length=50, prediction_length=3):
+        self.device = device
+
         # split entire history into sequences
         sequence_length = encoder_input_length + prediction_length
         sequences = [data[n:n + sequence_length] for n in range(len(data) - sequence_length)]
@@ -27,7 +29,7 @@ class CustomDataset(Dataset):
         encoder_input = self.encoder_input[idx]
         decoder_input = self.decoder_input[idx]
         expected_output = self.expected_output[idx]
-        return encoder_input, decoder_input, expected_output
+        return encoder_input.to(self.device).double(), decoder_input.to(self.device).double(), expected_output
 
 
 

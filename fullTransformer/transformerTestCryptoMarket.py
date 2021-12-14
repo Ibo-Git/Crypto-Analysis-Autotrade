@@ -10,7 +10,7 @@ from customDataset import CustomDataset
 from transformerModel import Trainer, TransformerModel
 
 
-def data_preprocessing(xbtusd_data, device, encoder_input_length, prediction_length):
+def data_preprocessing(xbtusd_data, device, split_percent, encoder_input_length, prediction_length):
     data = []
     for index, row in xbtusd_data.iterrows():
         data.append([
@@ -19,25 +19,37 @@ def data_preprocessing(xbtusd_data, device, encoder_input_length, prediction_len
             row['Low'], 
             row['Close']
         ])
+    
+    list_of_features = ['Open', 'High', 'Low', 'Close']
 
-    train_sequences = data[0:math.floor(len(data) * 0.9)]
-    val_sequences = data[math.floor(len(data) * 0.9):]
+    train_sequences = data[0:math.floor(len(data) * split_percent)]
+    val_sequences = data[math.floor(len(data) * split_percent):]
 
-    train_ds = CustomDataset(train_sequences, encoder_input_length, prediction_length)
-    val_ds = CustomDataset(val_sequences, encoder_input_length, prediction_length)
+    train_ds = CustomDataset(train_sequences, device, encoder_input_length, prediction_length)
+    val_ds = CustomDataset(val_sequences, device, encoder_input_length, prediction_length)
+    full_ds = CustomDataset(data, device, encoder_input_length, prediction_length)
+
     if device.type == 'cpu':
         train_dl = DataLoader(train_ds, batch_size=128, shuffle=True, num_workers=0, pin_memory=True, persistent_workers=False)
         val_dl = DataLoader(val_ds, batch_size=128, shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
+        full_dl = DataLoader(full_ds, batch_size=128, shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
     else:
         train_dl = DataLoader(train_ds, batch_size=512, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True)
         val_dl = DataLoader(val_ds, batch_size=512, shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
-    return train_dl, val_dl, torch.tensor(train_sequences).unsqueeze(0).to(device), torch.tensor(val_sequences).unsqueeze(0).to(device)
+        full_dl = DataLoader(full_ds, batch_size=64, shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
 
+    return train_dl, val_dl, full_dl, list_of_features
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    eval_mode = True
-    load_model = True
+
+    if device.type == 'cpu':
+        eval_mode = False
+        load_model = False
+    else:
+        eval_mode = True
+        load_model = True
+
     model_name = 'large-1'
     
     # Hyperparameters
@@ -59,10 +71,11 @@ def main():
     xbtusd_data = yf.download(tickers='BTC-USD', period = 'max', interval = '1d')
     xbtusd_data = xbtusd_data / params['asset_scaling']
     
+    split_percent = 0.9
     encoder_input_length = 48
     prediction_length = 1
 
-    train_dl, val_dl, train_sequences, val_sequences = data_preprocessing(xbtusd_data, device, encoder_input_length, prediction_length)
+    train_dl, val_dl, full_dl, list_of_features = data_preprocessing(xbtusd_data, device, split_percent, encoder_input_length, prediction_length)
     
     trainer = None
 
@@ -77,7 +90,7 @@ def main():
         
         for epoch in range(1000):
             print(f' --- Epoch: {epoch + 1}')
-            
+
             # Train
             loss = []
             acc = []
@@ -114,16 +127,7 @@ def main():
             
         print(f'val_loss: {sum(loss) / len(loss)}, val_acc: {(sum(acc) / len(acc)).tolist()}')
 
-        #n = 100 # starting index for sequence that is fed into transformer. train_sequences has ~2300 sequences. n + encoder_input_length + prediction_length must be < 2300
-        #train_encoder_input_for_plot = train_sequences[:, n:n + encoder_input_length, :]
-        #train_target_for_plot = train_sequences[:, n + encoder_input_length:n + encoder_input_length + prediction_length, :]
-        #trainer.plot_prediction_vs_target(train_encoder_input_for_plot, train_target_for_plot)
-
-        #val_encoder_input_for_plot = val_sequences[:, n:n + encoder_input_length, :]
-        #val_target_for_plot = val_sequences[:, n + encoder_input_length:n + encoder_input_length + prediction_length, :]
-        #trainer.plot_prediction_vs_target(val_encoder_input_for_plot, val_target_for_plot)
-
-        trainer.plot_prediction_vs_target(val_sequences, encoder_input_length, prediction_length)
+        trainer.plot_prediction_vs_target(full_dl, split_percent, list_of_features)
 
 if __name__ == '__main__':
     main()

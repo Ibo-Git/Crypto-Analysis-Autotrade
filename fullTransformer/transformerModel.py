@@ -77,10 +77,6 @@ class Trainer():
 
     def train_transformer(self, encoder_input, decoder_input, target_tensor):
         self.model.train()
-        # tensors to device
-        encoder_input = encoder_input.to(self.device).double()
-        decoder_input = decoder_input.to(self.device).double()
-        target_tensor = target_tensor.to(self.device).double()
 
         # backpropagation
         self.optimizer.zero_grad()
@@ -94,13 +90,8 @@ class Trainer():
         return loss.item(), acc
 
 
-    def evaluate_transformer(self, encoder_input, decoder_input_tensor, target_tensor):
+    def evaluate_transformer(self, encoder_input, decoder_input, target_tensor):
         self.model.eval()
-
-        # tensors to device
-        encoder_input = encoder_input.to(self.device).double()
-        decoder_input = decoder_input_tensor.to(self.device).double()
-        target_tensor = target_tensor.to(self.device).double()
 
         # determine loss and accuracy
         output = self.model(encoder_input, decoder_input)
@@ -190,25 +181,35 @@ class Trainer():
         return Trainer(model=model, optimizer=optimizer, scheduler=None, criterion=criterion, optim_lr=optim_lr, optim_name=optim_name, loss_name=loss_name, asset_scaling=asset_scaling, device=device)
 
 
-    def plot_prediction_vs_target(self, sequences, encoder_input_length, prediction_length):
-        output_for_plot, target_for_plot = self.predict_output_from_sequence(sequences, encoder_input_length, prediction_length)
-        plt.plot(range(len(output_for_plot)), output_for_plot, label = 'Prediction')
-        plt.plot(range(len(target_for_plot)), target_for_plot, label = 'Target')
-        plt.xlabel('Time')
-        plt.ylabel('Bitcoin value in USD')
-        plt.title('Prediction vs Target')
-        plt.legend()
-        plt.show()
-    
+    def plot_prediction_vs_target(self, dataloader, split_percent, list_of_features):
+        output_for_plot, target_for_plot = self.one_day_prediction_from_dataloader(dataloader)
 
-    def predict_output(self, encoder_input, target_sequence):
-        decoder_input = -torch.ones(encoder_input.shape[-1]).unsqueeze(0).unsqueeze(0).double().to(self.device)
-        output =  torch.tensor([]).double().to(self.device)
-        for n in range(target_sequence.shape[1]):
-            output = self.model(encoder_input, torch.cat((decoder_input, output), 1)) # encoder_input [1, 1000, 4]
+
+
+        #plt.plot(range(len(val_output_for_plot)), val_output_for_plot[:, 0, 0], label = 'Prediction')
+        x_axis = range(len(output_for_plot))
+        train_index = int(split_percent * x_axis[-1])
+        num_features = output_for_plot.shape[-1]
+        num_features_x = num_features - num_features // 2
+        num_features_y = num_features // 2
+        fig, axs = plt.subplots(num_features_x, num_features_y)
         
-        return output
+        n = 0
+        for n_x in range(num_features_x):
+            for n_y in range(num_features_y):
+                axs[n_x, n_y].plot(x_axis[:train_index], target_for_plot[:train_index, 0, n], label = 'Training target')
+                axs[n_x, n_y].plot(x_axis[train_index:], target_for_plot[train_index:, 0, n], label = 'Validation target')
+                axs[n_x, n_y].plot(x_axis[:train_index], output_for_plot[:train_index, 0, n], label = 'Training prediction')
+                axs[n_x, n_y].plot(x_axis[train_index:], output_for_plot[train_index:, 0, n], label = 'Validation prediction')
+                axs[n_x, n_y].set_title(f"Prediction vs Target - Feature '{list_of_features[n]}'")
+                axs[n_x, n_y].set_xlabel('Time')
+                axs[n_x, n_y].set_ylabel('Bitcoin value in USD')
+                n += 1
+  
+        fig.tight_layout()
+        plt.show()
 
+    
     # takes entire validation sequence, splits it into multiple sequences and predicts one day for each split 
     def predict_output_from_sequence(self, sequences, encoder_input_length, prediction_length):
         output = []
@@ -222,9 +223,32 @@ class Trainer():
 
         output = torch.cat(output)
         target = torch.cat(target)
-        output_for_plot = (output[:, 0, 0] * self.asset_scaling).detach().tolist()
-        target_for_plot = (target[:, 0, 0] * self.asset_scaling).detach().tolist()
+        output_for_plot = (output[:, 0, 0] * self.asset_scaling).tolist()
+        target_for_plot = (target[:, 0, 0] * self.asset_scaling).tolist()
 
         return output_for_plot, target_for_plot
+
+
+    def predict_output(self, encoder_input, target_sequence):
+        decoder_input = -torch.ones(encoder_input.shape[-1]).unsqueeze(0).unsqueeze(0).double().to(self.device)
+        output =  torch.tensor([]).double().to(self.device)
+
+        for n in range(target_sequence.shape[1]):
+            output = self.model(encoder_input, torch.cat((decoder_input, output), 1)) # encoder_input [1, 1000, 4]
+        
+        return output
+
+    
+    def one_day_prediction_from_dataloader(self,  dataloader):
+        output_for_plot =  torch.tensor([])
+        target_for_plot = torch.tensor([])
+
+        for encoder_input, decoder_input, target in dataloader:
+            output = self.model(encoder_input, decoder_input).to('cpu').detach()
+            output_for_plot = torch.cat((output_for_plot, output))
+            target_for_plot = torch.cat((target_for_plot, target))
+ 
+        return output_for_plot * self.asset_scaling, target_for_plot * self.asset_scaling
+    
         
         
