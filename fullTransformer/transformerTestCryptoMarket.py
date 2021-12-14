@@ -128,6 +128,8 @@ def main():
         print(f'val_loss: {sum(loss) / len(loss)}, val_acc: {(sum(acc) / len(acc)).tolist()}')
 
         trainer.plot_prediction_vs_target(full_dl, split_percent, list_of_features)
+        
+        breakpoint = None
 
 if __name__ == '__main__':
     main()
