@@ -30,9 +30,9 @@ def data_preprocessing(xbtusd_data, device, split_percent, encoder_input_length,
     full_ds = CustomDataset(data, encoder_input_length, prediction_length)
 
     if device.type == 'cpu':
-        train_dl = DataLoader(train_ds, batch_size=8, shuffle=True, num_workers=0, pin_memory=True, persistent_workers=False)
-        val_dl = DataLoader(val_ds, batch_size=128, shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
-        full_dl = DataLoader(full_ds, batch_size=128, shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
+        train_dl = DataLoader(train_ds, batch_size=256, shuffle=True, num_workers=0, pin_memory=True, persistent_workers=False)
+        val_dl = DataLoader(val_ds, batch_size=256, shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
+        full_dl = DataLoader(full_ds, batch_size=512, shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
     else:
         train_dl = DataLoader(train_ds, batch_size=256, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True)
         val_dl = DataLoader(val_ds, batch_size=256, shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
@@ -55,7 +55,7 @@ def main():
     model_name = 'large-1'
     
     split_percent = 0.9
-    encoder_input_length = 48
+    encoder_input_length = 12
     prediction_length = 1
 
     # Hyperparameters
@@ -63,10 +63,10 @@ def main():
         # Model
         'feature_size': 4,
         'encoder_input_length': encoder_input_length,
-        'n_heads': 1,
+        'n_heads': 4,
         'd_model': 512,
-        'num_encoder_layers': 1,
-        'num_decoder_layers': 1,
+        'num_encoder_layers': 2,
+        'num_decoder_layers': 2,
         'dropout': 0,
         # Optim
         'optim_name': 'Adam',

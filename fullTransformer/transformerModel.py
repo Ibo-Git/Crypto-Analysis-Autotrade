@@ -20,7 +20,7 @@ class PositionalEncoding(nn.Module):
         self.register_buffer('pe', pe)
 
     def forward(self, x):
-        x = x + self.pe[:x.size(0), :]
+        x = x + self.pe[:x.size(1), :].permute(1, 0, 2)
         return self.dropout(x)
 
 
@@ -31,6 +31,7 @@ class TransformerModel(nn.Module):
 
         # Add to model so that save can access them
         self.feature_size = feature_size
+        self.encoder_input_length = encoder_input_length
         self.d_model = d_model
         self.n_heads = n_heads
         self.num_encoder_layers = num_encoder_layers
@@ -142,11 +143,12 @@ class Trainer():
             # Hyperparameters
             # Model
             'feature_size': self.model.feature_size,
+            'encoder_input_length': self.model.encoder_input_length,
             'n_heads': self.model.n_heads,
-            'd_model': self.d_model,
+            'd_model': self.model.d_model,
             'num_encoder_layers': self.model.num_encoder_layers,
             'num_decoder_layers': self.model.num_decoder_layers,
-            'dropout': self.dropout,
+            'dropout': self.model.dropout,
             # Optim
             'optim_name': self.optim_name,
             'optim_lr': self.optim_lr,
