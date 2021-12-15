@@ -25,23 +25,28 @@ class PositionalEncoding(nn.Module):
 
 
 class TransformerModel(nn.Module):
-    def __init__(self, feature_size, n_heads, num_encoder_layers, num_decoder_layers, device):
+    def __init__(self, feature_size, encoder_input_length, d_model, n_heads, num_encoder_layers, num_decoder_layers, dropout, device):
         super(TransformerModel, self).__init__()
         self.device = device
 
         # Add to model so that save can access them
         self.feature_size = feature_size
+        self.d_model = d_model
         self.n_heads = n_heads
         self.num_encoder_layers = num_encoder_layers
         self.num_decoder_layers = num_decoder_layers
+        self.dropout = dropout
+
+        # 3 different layers use dropout, each layer gets a dropout values such that all dropouts together equal the needed dropout
+        dropout = dropout / 3
 
         # Create model
-        self.fc_layer_src = nn.Linear(feature_size, 512)
-        self.fc_layer_tgt = nn.Linear(feature_size, 512)
-        self.positional_encoder_src = PositionalEncoding(d_model=512, dropout=0.1)
-        self.positional_encoder_tgt = PositionalEncoding(d_model=512, dropout=0.1)
-        self.transformer = nn.Transformer(d_model=512, nhead=n_heads, num_encoder_layers=num_encoder_layers, num_decoder_layers=num_decoder_layers, batch_first=True)
-        self.fc_layer_flatten = nn.Linear(512, feature_size)
+        self.fc_layer_src = nn.Linear(feature_size, d_model)
+        self.fc_layer_tgt = nn.Linear(feature_size, d_model)
+        self.positional_encoder_src = PositionalEncoding(d_model=d_model, dropout=dropout, max_len=encoder_input_length)   
+        self.positional_encoder_tgt = PositionalEncoding(d_model=d_model, dropout=dropout, max_len=encoder_input_length)
+        self.transformer = nn.Transformer(d_model=d_model, nhead=n_heads, num_encoder_layers=num_encoder_layers, num_decoder_layers=num_decoder_layers, batch_first=True, dropout=dropout)
+        self.fc_layer_flatten = nn.Linear(d_model, feature_size)
 
         self.double()
 
@@ -138,8 +143,10 @@ class Trainer():
             # Model
             'feature_size': self.model.feature_size,
             'n_heads': self.model.n_heads,
+            'd_model': self.d_model,
             'num_encoder_layers': self.model.num_encoder_layers,
             'num_decoder_layers': self.model.num_decoder_layers,
+            'dropout': self.dropout,
             # Optim
             'optim_name': self.optim_name,
             'optim_lr': self.optim_lr,
@@ -170,15 +177,29 @@ class Trainer():
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
         feature_size = params['feature_size']
+        encoder_input_length = params['encoder_input_length']
         n_heads = params['n_heads']
+        d_model = params['d_model']
         num_encoder_layers = params['num_encoder_layers']
         num_decoder_layers = params['num_decoder_layers']
+        dropout = params['dropout']
         optim_lr = params['optim_lr']
         optim_name = params['optim_name']
         loss_name = params['loss_name']
         asset_scaling = params['asset_scaling']
+        
 
-        model = TransformerModel(feature_size=feature_size, n_heads=n_heads, num_encoder_layers=num_encoder_layers, num_decoder_layers=num_decoder_layers, device=device).to(device)
+        model = TransformerModel(
+            feature_size=feature_size, 
+            encoder_input_length=encoder_input_length, 
+            n_heads=n_heads, 
+            d_model=d_model, 
+            num_encoder_layers=num_encoder_layers, 
+            num_decoder_layers=num_decoder_layers, 
+            dropout=dropout,
+            device=device
+        ).to(device)
+
         optimizer = None
         criterion = None
 

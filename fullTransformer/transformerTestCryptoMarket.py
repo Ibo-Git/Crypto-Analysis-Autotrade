@@ -30,13 +30,13 @@ def data_preprocessing(xbtusd_data, device, split_percent, encoder_input_length,
     full_ds = CustomDataset(data, encoder_input_length, prediction_length)
 
     if device.type == 'cpu':
-        train_dl = DataLoader(train_ds, batch_size=128, shuffle=True, num_workers=0, pin_memory=True, persistent_workers=False)
+        train_dl = DataLoader(train_ds, batch_size=8, shuffle=True, num_workers=0, pin_memory=True, persistent_workers=False)
         val_dl = DataLoader(val_ds, batch_size=128, shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
         full_dl = DataLoader(full_ds, batch_size=128, shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
     else:
-        train_dl = DataLoader(train_ds, batch_size=512, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True)
-        val_dl = DataLoader(val_ds, batch_size=512, shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
-        full_dl = DataLoader(full_ds, batch_size=64, shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
+        train_dl = DataLoader(train_ds, batch_size=256, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True)
+        val_dl = DataLoader(val_ds, batch_size=256, shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
+        full_dl = DataLoader(full_ds, batch_size=512, shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
 
     return train_dl, val_dl, full_dl, list_of_features
 
@@ -47,18 +47,25 @@ def main():
         eval_mode = False
         load_model = False
     else:
-        eval_mode = True
-        load_model = True
+        eval_mode = False
+        load_model = False
 
     model_name = 'large-1'
     
+    split_percent = 0.9
+    encoder_input_length = 48
+    prediction_length = 1
+
     # Hyperparameters
     params = {
         # Model
         'feature_size': 4,
-        'n_heads': 8,
-        'num_encoder_layers': 4,
-        'num_decoder_layers': 4,
+        'encoder_input_length': encoder_input_length,
+        'n_heads': 1,
+        'd_model': 512,
+        'num_encoder_layers': 1,
+        'num_decoder_layers': 1,
+        'dropout': 0,
         # Optim
         'optim_name': 'Adam',
         'optim_lr': 0.0001,
@@ -71,9 +78,7 @@ def main():
     xbtusd_data = yf.download(tickers='BTC-USD', period = 'max', interval = '1d')
     xbtusd_data = xbtusd_data / params['asset_scaling']
     
-    split_percent = 0.9
-    encoder_input_length = 48
-    prediction_length = 1
+
 
     train_dl, val_dl, full_dl, list_of_features = data_preprocessing(xbtusd_data, device, split_percent, encoder_input_length, prediction_length)
     
@@ -88,7 +93,8 @@ def main():
             checkpoint = Trainer.load_checkpoint(model_name)
             trainer = Trainer.create_trainer(params=checkpoint)
             trainer.load_training(model_name)
-        
+            trainer.set_learningrate(0.0001)
+
         for epoch in range(1000):
             print(f' --- Epoch: {epoch + 1}')
 
