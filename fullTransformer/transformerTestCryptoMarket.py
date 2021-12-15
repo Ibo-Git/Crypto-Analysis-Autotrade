@@ -43,6 +43,8 @@ def data_preprocessing(xbtusd_data, device, split_percent, encoder_input_length,
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+    val_set_eval_during_training = False
+
     if device.type == 'cpu':
         eval_mode = False
         load_model = False
@@ -103,16 +105,17 @@ def main():
             print(f'train_loss: {sum(loss) / len(loss)}, train_acc: {(sum(acc) / len(acc)).tolist()}')
             trainer.save_training(model_name)
 
-            # Eval
-            loss = []
-            acc = []
+            if val_set_eval_during_training:
+                # Eval
+                loss = []
+                acc = []
 
-            for encoder_input, decoder_input, expected_output in val_dl:
-                batch_loss, batch_acc = trainer.evaluate_transformer(encoder_input, decoder_input, expected_output)
-                loss.append(batch_loss)
-                acc.append(batch_acc)
-            
-            print(f'val_loss: {sum(loss) / len(loss)}, val_acc: {(sum(acc) / len(acc)).tolist()}')
+                for encoder_input, decoder_input, expected_output in val_dl:
+                    batch_loss, batch_acc = trainer.evaluate_transformer(encoder_input, decoder_input, expected_output)
+                    loss.append(batch_loss)
+                    acc.append(batch_acc)
+                
+                print(f'val_loss: {sum(loss) / len(loss)}, val_acc: {(sum(acc) / len(acc)).tolist()}')
     else:
         checkpoint = Trainer.load_checkpoint(model_name)
         trainer = Trainer.create_trainer(params=checkpoint)
