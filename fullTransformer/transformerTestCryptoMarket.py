@@ -10,7 +10,7 @@ from customDataset import CustomDataset
 from transformerModel import Trainer, TransformerModel
 
 
-def data_preprocessing(xbtusd_data, parameters):
+def data_preprocessing(parameters):
 
     xbtusd_data = yf.download(tickers='BTC-USD', period = 'max', interval = '1d')   
     xbtusd_data = xbtusd_data / parameters.params['asset_scaling']
