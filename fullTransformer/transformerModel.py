@@ -100,6 +100,22 @@ class Trainer():
         
         return loss.item(), acc
 
+    def perform_epoch(self, dataloader, mode):
+            loss = []
+            acc = []
+
+            for encoder_input, decoder_input, expected_output in dataloader:
+                if mode == 'train':
+                    batch_loss, batch_acc = self.train_transformer(encoder_input, decoder_input, expected_output)
+                elif mode == 'val':
+                    batch_loss, batch_acc = self.evaluate_transformer(encoder_input, decoder_input, expected_output)
+
+                loss.append(batch_loss)
+                acc.append(batch_acc)
+
+            print(f'{mode}_loss: {sum(loss) / len(loss)}, {mode}_acc: {(sum(acc) / len(acc)).tolist()}')
+
+
 
     def evaluate_transformer(self, encoder_input, decoder_input, target_tensor):
         self.model.eval()
@@ -224,7 +240,7 @@ class Trainer():
         # create subplots for all features
         num_features = output_for_plot.shape[-1]
         num_features_x = num_features - num_features // 2
-        num_features_y = num_features // 2
+        num_features_y = max(1, num_features // 2)
         fig, axs = plt.subplots(num_features_x, num_features_y)
         
         n = 0
