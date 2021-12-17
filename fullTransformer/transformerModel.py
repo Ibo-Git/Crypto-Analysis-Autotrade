@@ -104,7 +104,7 @@ class Trainer():
             loss = []
             acc = []
 
-            for encoder_input, decoder_input, expected_output in dataloader:
+            for encoder_input, decoder_input, expected_output, asset_tag in dataloader:
                 if mode == 'train':
                     batch_loss, batch_acc = self.train_transformer(encoder_input, decoder_input, expected_output)
                 elif mode == 'val':

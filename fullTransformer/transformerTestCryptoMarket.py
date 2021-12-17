@@ -15,23 +15,19 @@ from transformerModel import Trainer, TransformerModel
 def data_preprocessing(params, assets, features):
     data = {}
     
-    for num_asset, asset in enumerate(assets):
-        crypto_df = yf.download(tickers=assets[asset]['api-name'], period=assets[asset]['period'], interval=assets[asset]['interval'])
-        temp_list = []
-        interval_list = []
+    for asset_key, asset in assets.items():
+        crypto_df = yf.download(tickers=asset['api-name'], period=asset['period'], interval=asset['interval'])
+        data[asset_key] = []
 
         for index, row in crypto_df.iterrows():
-            temp_list.append([
+            data[asset_key] .append([
                 row['Open'], 
                 row['High'], 
                 row['Low'], 
                 row['Close']
             ])
-
-        data[asset] = temp_list
     
     # scaling
-    scaled_data = {}
     scale_values = {}
     train_sequences = {}
     val_sequences = {}
@@ -41,8 +37,9 @@ def data_preprocessing(params, assets, features):
             'min': reduce(min, data[asset]), 
             'max': reduce(max, data[asset])
         }
+
         feature_list = list(features.values())
-        data[asset] = [[[((feature_list[idx_inner]['scaling-interval'][1] - feature_list[idx_inner]['scaling-interval'][0]) * (feature - scale_values[asset]['min'][idx_inner]) / (scale_values[asset]['max'][idx_inner] - scale_values[asset]['min'][idx_inner]) + feature_list[idx_inner]['scaling-interval'][0])] for idx_inner, feature in enumerate(features)] for features in data[asset]]
+        data[asset] = [[((feature_list[idx_inner]['scaling-interval'][1] - feature_list[idx_inner]['scaling-interval'][0]) * (feature - scale_values[asset]['min'][idx_inner]) / (scale_values[asset]['max'][idx_inner] - scale_values[asset]['min'][idx_inner]) + feature_list[idx_inner]['scaling-interval'][0]) for idx_inner, feature in enumerate(features)] for features in data[asset]]
         train_sequences[asset] = data[asset][0:math.floor(len(data[asset]) * params.split_percent)]
         val_sequences[asset] = data[asset][math.floor(len(data[asset]) * params.split_percent):]
 
@@ -50,7 +47,7 @@ def data_preprocessing(params, assets, features):
     val_ds = CustomDataset(val_sequences, params.encoder_input_length, params.prediction_length)
     full_ds = CustomDataset(data, params.encoder_input_length, params.prediction_length)
 
-    if torch.device('cuda' if torch.cuda.is_available() else 'cpu').type == 'cpu':
+    if not torch.cuda.is_available():
         train_dl = DataLoader(train_ds, batch_size=params.batch_size['training'], shuffle=True, num_workers=0, pin_memory=True, persistent_workers=False)
         val_dl = DataLoader(val_ds, batch_size=params.batch_size['validation'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
         full_dl = DataLoader(full_ds, batch_size=params.batch_size['plot'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
@@ -59,7 +56,7 @@ def data_preprocessing(params, assets, features):
         val_dl = DataLoader(val_ds, batch_size=params.batch_size['validation'], shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
         full_dl = DataLoader(full_ds, batch_size=params.batch_size['plot'], shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
 
-    return train_dl, val_dl, full_dl, list_of_features
+    return train_dl, val_dl, full_dl
 
 
 class InitializeParameters():
@@ -112,24 +109,6 @@ def main():
             'api-name': 'ETH-USD',
             'period': 'max',
             'interval': '1d',
-            'features': {
-                'open': {
-                    'scaling-mode': 'min-max-scaler',
-                    'scaling-interval': [0, 1]
-                },
-                'high': {
-                    'scaling-mode': 'min-max-scaler',
-                    'scaling-interval': [0, 1]
-                },
-                'low': {
-                    'scaling-mode': 'min-max-scaler',
-                    'scaling-interval': [0, 1]
-                },
-                'close': {
-                    'scaling-mode': 'min-max-scaler',
-                    'scaling-interval': [0, 1]
-                }
-            }
         }
     }
 
@@ -152,7 +131,7 @@ def main():
             }
 
     parameters = InitializeParameters()
-    train_dl, val_dl, full_dl, list_of_features = data_preprocessing(parameters, assets, features)
+    train_dl, val_dl, full_dl = data_preprocessing(parameters, assets, features)
     
     # Start Training and / or Evaluation
     trainer = None
@@ -179,7 +158,7 @@ def main():
         trainer = Trainer.create_trainer(params=checkpoint)
         trainer.load_training(parameters.model_name)
         trainer.perform_epoch(val_dl, 'val')
-        trainer.plot_prediction_vs_target(full_dl, parameters.split_percent, list_of_features)
+        trainer.plot_prediction_vs_target(full_dl, parameters.split_percent, list(features.keys()))
 
         breakpoint = None
 

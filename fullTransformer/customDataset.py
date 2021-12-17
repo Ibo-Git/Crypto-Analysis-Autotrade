@@ -5,15 +5,23 @@ from torch.utils.data import Dataset
 
 
 class CustomDataset(Dataset):
-    def __init__(self, data, encoder_input_length=50, prediction_length=3):
-
+    def __init__(self, data, encoder_input_length=50, prediction_length=1):
+        
         # split entire history into sequences
         sequence_length = encoder_input_length + prediction_length
-        sequences = [data[n:n + sequence_length] for n in range(len(data) - sequence_length)]
+        asset_tag = []
+        sequences = []
+
+        for asset_key, asset in data.items():
+            temp_sequence_length = len(sequences)
+            sequences = sequences + [asset[n:n + sequence_length] for n in range(len(asset) - sequence_length)]
+            asset_tag = asset_tag + ([asset_key] * (len(sequences) - temp_sequence_length))
+
+        self.asset_tag = asset_tag
 
         # create encoder decoder inputs and expected output
         self.encoder_input, self.decoder_input, self.expected_output = [], [], []
-        self.sos_token = -torch.ones(len(data[0])).unsqueeze(0)
+        self.sos_token = -torch.ones(len(data[asset_key][0])).unsqueeze(0)
 
         for sequence in sequences:
             self.encoder_input.append(torch.tensor(sequence[:encoder_input_length]))
@@ -28,7 +36,8 @@ class CustomDataset(Dataset):
         encoder_input = self.encoder_input[idx]
         decoder_input = self.decoder_input[idx]
         expected_output = self.expected_output[idx]
-        return encoder_input.double(), decoder_input.double(), expected_output.double()
+        asset_tag = self.asset_tag[idx]
+        return encoder_input.double(), decoder_input.double(), expected_output.double(), asset_tag
 
 
 
