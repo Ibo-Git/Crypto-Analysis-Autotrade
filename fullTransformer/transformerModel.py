@@ -193,8 +193,6 @@ class Trainer():
             'optim_lr': self.optim_lr,
             # Loss
             'loss_name': self.loss_name,
-            # Asset scaling factor
-            'asset_scaling': self.asset_scaling
         }, os.path.join('savedFiles', modelname + '.pt'))
     
 
@@ -226,9 +224,7 @@ class Trainer():
         dropout = params['dropout']
         optim_lr = params['optim_lr']
         optim_name = params['optim_name']
-        loss_name = params['loss_name']
-        asset_scaling = params['asset_scaling']
-        
+        loss_name = params['loss_name']      
 
         model = TransformerModel(
             feature_size=feature_size, 
@@ -291,8 +287,12 @@ class Trainer():
             output = self.model(encoder_input.to(self.device), decoder_input.to(self.device))
             output_for_plot = torch.cat((output_for_plot, output.to('cpu').detach()))
             target_for_plot = torch.cat((target_for_plot, target.to('cpu').detach()))
- 
-        return output_for_plot * self.asset_scaling, target_for_plot * self.asset_scaling
+
+        # scale values back to normal
+        output_for_plot = self.scale_assets_to_normal(output_for_plot, asset_tag)
+        target_for_plot = self.scale_assets_to_normal(target_for_plot, asset_tag)
+        
+        return output_for_plot, target_for_plot
 
     
     ## takes entire validation sequence, splits it into multiple sequences and predicts one day for each split 

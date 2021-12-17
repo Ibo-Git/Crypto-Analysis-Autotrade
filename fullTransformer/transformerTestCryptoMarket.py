@@ -92,7 +92,6 @@ class InitializeParameters():
             'optim_lr': 0.0001,
             # Loss
             'loss_name': 'MSELoss',
-            'asset_scaling': 100000
         }
 
 
