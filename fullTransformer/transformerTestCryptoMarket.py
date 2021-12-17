@@ -142,7 +142,7 @@ def main():
             trainer = Trainer.create_trainer(params=parameters.params, features=features, scale_values=scale_values)
         else:
             checkpoint = Trainer.load_checkpoint(parameters.model_name)
-            trainer = Trainer.create_trainer(params=parameters.params, features=features, scale_values=scale_values)
+            trainer = Trainer.create_trainer(params=checkpoint, features=features, scale_values=scale_values)
             trainer.load_training(parameters.model_name)
             trainer.set_learningrate(parameters.lr_overwrite_for_load)
 
@@ -155,7 +155,7 @@ def main():
                trainer.perform_epoch(val_dl, 'val')
     else:
         checkpoint = Trainer.load_checkpoint(parameters.model_name)
-        trainer = Trainer.create_trainer(params=parameters.params, features=features, scale_values=scale_values)
+        trainer = Trainer.create_trainer(params=checkpoint, features=features, scale_values=scale_values)
         trainer.load_training(parameters.model_name)
         trainer.perform_epoch(val_dl, 'val')
         trainer.plot_prediction_vs_target(full_dl, parameters.split_percent, list(features.keys()))
