@@ -56,7 +56,7 @@ def data_preprocessing(params, assets, features):
         val_dl = DataLoader(val_ds, batch_size=params.batch_size['validation'], shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
         full_dl = DataLoader(full_ds, batch_size=params.batch_size['plot'], shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
 
-    return train_dl, val_dl, full_dl
+    return train_dl, val_dl, full_dl, scale_values
 
 
 class InitializeParameters():
@@ -131,7 +131,7 @@ def main():
             }
 
     parameters = InitializeParameters()
-    train_dl, val_dl, full_dl = data_preprocessing(parameters, assets, features)
+    train_dl, val_dl, full_dl, scale_values = data_preprocessing(parameters, assets, features)
     
     # Start Training and / or Evaluation
     trainer = None
@@ -139,10 +139,10 @@ def main():
     if not parameters.eval_mode:
         # Create model
         if not parameters.load_model:
-            trainer = Trainer.create_trainer(params=parameters.params)
+            trainer = Trainer.create_trainer(params=parameters.params, features=features, scale_values=scale_values)
         else:
             checkpoint = Trainer.load_checkpoint(parameters.model_name)
-            trainer = Trainer.create_trainer(params=checkpoint)
+            trainer = Trainer.create_trainer(params=parameters.params, features=features, scale_values=scale_values)
             trainer.load_training(parameters.model_name)
             trainer.set_learningrate(parameters.lr_overwrite_for_load)
 
@@ -155,7 +155,7 @@ def main():
                trainer.perform_epoch(val_dl, 'val')
     else:
         checkpoint = Trainer.load_checkpoint(parameters.model_name)
-        trainer = Trainer.create_trainer(params=checkpoint)
+        trainer = Trainer.create_trainer(params=parameters.params, features=features, scale_values=scale_values)
         trainer.load_training(parameters.model_name)
         trainer.perform_epoch(val_dl, 'val')
         trainer.plot_prediction_vs_target(full_dl, parameters.split_percent, list(features.keys()))

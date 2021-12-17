@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
-
+import numpy as np
 
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout, max_len=5000):
@@ -69,7 +69,7 @@ class TransformerModel(nn.Module):
 
     
 class Trainer():
-    def __init__(self, model, optimizer, scheduler, criterion, optim_lr, optim_name, loss_name, asset_scaling, device):
+    def __init__(self, model, optimizer, scheduler, criterion, optim_lr, optim_name, loss_name, features, scale_values, device):
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler 
@@ -77,11 +77,28 @@ class Trainer():
         self.optim_lr = optim_lr
         self.optim_name = optim_name
         self.loss_name = loss_name
-        self.asset_scaling = asset_scaling
         self.device = device
+        self.features = features
+        self.scale_values = scale_values
 
 
-    def train_transformer(self, encoder_input, decoder_input, target_tensor):
+    def perform_epoch(self, dataloader, mode):
+        loss = []
+        acc = []
+
+        for encoder_input, decoder_input, expected_output, asset_tag in dataloader:
+            if mode == 'train':
+                batch_loss, batch_acc = self.train_transformer(encoder_input, decoder_input, expected_output, asset_tag)
+            elif mode == 'val':
+                batch_loss, batch_acc = self.evaluate_transformer(encoder_input, decoder_input, expected_output, asset_tag)
+
+            loss.append(batch_loss)
+            acc.append(batch_acc)
+
+        print(f'{mode}_loss: {sum(loss) / len(loss)}, {mode}_acc: {(sum(acc) / len(acc)).tolist()}')
+
+
+    def train_transformer(self, encoder_input, decoder_input, target_tensor, asset_tag):
         self.model.train()
 
         # tensors to device
@@ -96,28 +113,12 @@ class Trainer():
         loss.backward()
         self.optimizer.step()
         if self.scheduler is not None: self.scheduler.step()
-        acc = self.get_accuracy(output, target_tensor).to('cpu').detach()
+        acc = self.get_accuracy(output, target_tensor, asset_tag).to('cpu').detach()
         
         return loss.item(), acc
 
-    def perform_epoch(self, dataloader, mode):
-            loss = []
-            acc = []
 
-            for encoder_input, decoder_input, expected_output, asset_tag in dataloader:
-                if mode == 'train':
-                    batch_loss, batch_acc = self.train_transformer(encoder_input, decoder_input, expected_output)
-                elif mode == 'val':
-                    batch_loss, batch_acc = self.evaluate_transformer(encoder_input, decoder_input, expected_output)
-
-                loss.append(batch_loss)
-                acc.append(batch_acc)
-
-            print(f'{mode}_loss: {sum(loss) / len(loss)}, {mode}_acc: {(sum(acc) / len(acc)).tolist()}')
-
-
-
-    def evaluate_transformer(self, encoder_input, decoder_input, target_tensor):
+    def evaluate_transformer(self, encoder_input, decoder_input, target_tensor, asset_tag):
         self.model.eval()
 
         # tensors to device
@@ -133,10 +134,32 @@ class Trainer():
         return loss, acc
 
 
-    def get_accuracy(self, output, target):
-        #acc = torch.mean(torch.abs(output - target) [:, 0:target.shape[1] - 1, :] * self.asset_scaling, [0, 1]) # if not used, remove later
-        acc = torch.mean(torch.abs(output - target)  * self.asset_scaling, [0, 1])
+    def get_accuracy(self, output, target, asset_tag):
+        scaled_output = self.scale_assets_to_normal(output, asset_tag)
+        scaled_target = self.scale_assets_to_normal(target, asset_tag)
+        assets = set(asset_tag)
+        acc = {}
+
+        for asset in assets:
+            entries_matching = np.array(asset_tag) == np.array(list([asset]) * len(asset_tag))
+            acc[asset] = torch.mean(torch.abs(scaled_output[entries_matching, :, :] - scaled_target[entries_matching, :, :]), [0, 1])
+
         return acc
+
+    def scale_assets_to_normal(self, data, asset_tag):
+        scale_values = self.scale_values
+        features = self.features
+        feature_list = list(features.values())
+
+        # a = feature_list[idx_inner]['scaling-interval'][0]
+        # b = feature_list[idx_inner]['scaling-interval'][1]
+        # min = scale_values[asset_tag[sequence]]['min'][idx_inner]
+        # max = scale_values[asset_tag[sequence]]['max'][idx_inner]
+        # scaled_data = (data - a) / (b - a) * (max - min) + min        with interval [a, b] 
+
+        scaled_data = [[[((feature - feature_list[idx_inner]['scaling-interval'][0]) / (feature_list[idx_inner]['scaling-interval'][1] - feature_list[idx_inner]['scaling-interval'][0]) * (scale_values[asset_tag[idx_sequence]]['max'][idx_inner] - scale_values[asset_tag[idx_sequence]]['min'][idx_inner]) + scale_values[asset_tag[idx_sequence]]['min'][idx_inner]) for idx_inner, feature in enumerate(features)] for features in sequence] for idx_sequence, sequence in enumerate(data)]
+
+        return torch.tensor(scaled_data)
 
 
     def set_learningrate(self, new_lr):
@@ -191,7 +214,7 @@ class Trainer():
             print('Model to load does not exist.')
 
 
-    def create_trainer(params):
+    def create_trainer(params, features, scale_values):
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
         feature_size = params['feature_size']
@@ -227,7 +250,7 @@ class Trainer():
         if loss_name == 'MSELoss':
             criterion = nn.MSELoss()
 
-        return Trainer(model=model, optimizer=optimizer, scheduler=None, criterion=criterion, optim_lr=optim_lr, optim_name=optim_name, loss_name=loss_name, asset_scaling=asset_scaling, device=device)
+        return Trainer(model=model, optimizer=optimizer, scheduler=None, criterion=criterion, optim_lr=optim_lr, optim_name=optim_name, loss_name=loss_name, features=features, scale_values=scale_values, device=device)
 
 
     def plot_prediction_vs_target(self, dataloader, split_percent, list_of_features):
@@ -250,6 +273,7 @@ class Trainer():
                 axs[n_x, n_y].plot(x_axis[train_index:], target_for_plot[train_index:, 0, n], label = 'Validation target')
                 axs[n_x, n_y].plot(x_axis[:train_index], output_for_plot[:train_index, 0, n], label = 'Training prediction')
                 axs[n_x, n_y].plot(x_axis[train_index:], output_for_plot[train_index:, 0, n], label = 'Validation prediction')
+                axs[n_x, n_y].legend(loc = "upper left")
                 axs[n_x, n_y].set_title(f"Prediction vs Target - Feature '{list_of_features[n]}'")
                 axs[n_x, n_y].set_xlabel('Time')
                 axs[n_x, n_y].set_ylabel('Bitcoin value in USD')
@@ -263,7 +287,7 @@ class Trainer():
         output_for_plot =  torch.tensor([])
         target_for_plot = torch.tensor([])
 
-        for encoder_input, decoder_input, target in dataloader:
+        for encoder_input, decoder_input, target, asset_tag in dataloader:
             output = self.model(encoder_input.to(self.device), decoder_input.to(self.device))
             output_for_plot = torch.cat((output_for_plot, output.to('cpu').detach()))
             target_for_plot = torch.cat((target_for_plot, target.to('cpu').detach()))
