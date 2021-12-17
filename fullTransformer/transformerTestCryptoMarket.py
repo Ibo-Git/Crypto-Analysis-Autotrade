@@ -1,5 +1,7 @@
 import math
+from functools import reduce
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -10,28 +12,47 @@ from customDataset import CustomDataset
 from transformerModel import Trainer, TransformerModel
 
 
-def data_preprocessing(parameters):
-
-    xbtusd_data = yf.download(tickers='BTC-USD', period = 'max', interval = '1d')   
-    xbtusd_data = xbtusd_data / parameters.params['asset_scaling']
-
+def data_preprocessing(parameters, assets):
+   
     batch_size = parameters.batch_size
     split_percent = parameters.split_percent
     encoder_input_length = parameters.encoder_input_length
     prediction_length = parameters.prediction_length
-    data = []
 
-    for index, row in xbtusd_data.iterrows():
-        data.append([
-            row['Open'], 
-            row['High'], 
-            row['Low'], 
-            row['Close']
-        ])
+    data = {}
+    for num_asset, asset in enumerate(assets):
+        crypto_df = yf.download(tickers=assets[asset]['api-name'], period=assets[asset]['period'], interval=assets[asset]['interval'])
+        temp_list = []
+        interval_list = []
+
+        for index, row in crypto_df.iterrows():
+            temp_list.append([
+                row['Open'], 
+                row['High'], 
+                row['Low'], 
+                row['Close']
+            ])
+
+        data[asset] = temp_list
     
     list_of_features = ['Open', 'High', 'Low', 'Close']
-    train_sequences = data[0:math.floor(len(data) * split_percent)]
-    val_sequences = data[math.floor(len(data) * split_percent):]
+
+    # scaling
+    scaled_data = {}
+    scale_values = {}
+    train_sequences = {}
+    val_sequences = {}
+
+    for asset in data:
+        scale_values[asset] = {
+            'min': reduce(min, data[asset]), 
+            'max': reduce(max, data[asset])
+        }
+        feature_list = list(assets[asset]['features'].values())
+        data[asset] = [[[((feature_list[idx_inner]['scaling-interval'][1] - feature_list[idx_inner]['scaling-interval'][0]) * (feature - scale_values[asset]['min'][idx_inner]) / (scale_values[asset]['max'][idx_inner] - scale_values[asset]['min'][idx_inner]) + feature_list[idx_inner]['scaling-interval'][0])] for idx_inner, feature in enumerate(features)] for features in data[asset]]
+        train_sequences[asset] = data[asset][0:math.floor(len(data[asset]) * split_percent)]
+        val_sequences[asset] = data[asset][math.floor(len(data[asset]) * split_percent):]
+
     train_ds = CustomDataset(train_sequences, encoder_input_length, prediction_length)
     val_ds = CustomDataset(val_sequences, encoder_input_length, prediction_length)
     full_ds = CustomDataset(data, encoder_input_length, prediction_length)
@@ -85,8 +106,59 @@ class InitializeParameters():
 
 
 def main():
+    # possible intervals: 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo
+    # period depends on interval: 'max' for intervals > 1d, '60d' for 1d < interval < 1m, and for 1m set to 7d 
+    assets = {
+        'BTC': {
+            'api-name': 'BTC-USD',
+            'period': 'max',
+            'interval': '1d', 
+            'features': {
+                'open': {
+                    'scaling-mode': 'min-max-scaler',
+                    'scaling-interval': [0, 1]
+                },
+                'high': {
+                    'scaling-mode': 'min-max-scaler',
+                    'scaling-interval': [0, 1]
+                },
+                'low': {
+                    'scaling-mode': 'min-max-scaler',
+                    'scaling-interval': [0, 1]
+                },
+                'close': {
+                    'scaling-mode': 'min-max-scaler',
+                    'scaling-interval': [0, 1]
+                }
+            }
+        },
+        'ETH': {
+            'api-name': 'ETH-USD',
+            'period': 'max',
+            'interval': '1d',
+            'features': {
+                'open': {
+                    'scaling-mode': 'min-max-scaler',
+                    'scaling-interval': [0, 1]
+                },
+                'high': {
+                    'scaling-mode': 'min-max-scaler',
+                    'scaling-interval': [0, 1]
+                },
+                'low': {
+                    'scaling-mode': 'min-max-scaler',
+                    'scaling-interval': [0, 1]
+                },
+                'close': {
+                    'scaling-mode': 'min-max-scaler',
+                    'scaling-interval': [0, 1]
+                }
+            }
+        }
+    }
+
     parameters = InitializeParameters()
-    train_dl, val_dl, full_dl, list_of_features = data_preprocessing(parameters)
+    train_dl, val_dl, full_dl, list_of_features = data_preprocessing(parameters, assets)
     
     # Start Training and / or Evaluation
     trainer = None
