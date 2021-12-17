@@ -45,16 +45,24 @@ def data_preprocessing(params, assets, features):
 
     train_ds = CustomDataset(train_sequences, params.encoder_input_length, params.prediction_length)
     val_ds = CustomDataset(val_sequences, params.encoder_input_length, params.prediction_length)
-    full_ds = CustomDataset(data, params.encoder_input_length, params.prediction_length)
 
     if not torch.cuda.is_available():
         train_dl = DataLoader(train_ds, batch_size=params.batch_size['training'], shuffle=True, num_workers=0, pin_memory=True, persistent_workers=False)
         val_dl = DataLoader(val_ds, batch_size=params.batch_size['validation'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
-        full_dl = DataLoader(full_ds, batch_size=params.batch_size['plot'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
     else:
         train_dl = DataLoader(train_ds, batch_size=params.batch_size['training'], shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True)
         val_dl = DataLoader(val_ds, batch_size=params.batch_size['validation'], shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
-        full_dl = DataLoader(full_ds, batch_size=params.batch_size['plot'], shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
+
+    # Datasets and Dataloader for plots
+    full_ds = {}
+    full_dl = {}
+
+    for asset_key, asset in data.items():
+        full_ds[asset_key] = CustomDataset({asset_key: asset}, params.encoder_input_length, params.prediction_length)
+        if not torch.cuda.is_available():
+            full_dl[asset_key] = DataLoader(full_ds[asset_key], batch_size=params.batch_size['plot'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
+        else:
+            full_dl[asset_key] = DataLoader(full_ds[asset_key], batch_size=params.batch_size['plot'], shuffle=False, num_workers=4, pin_memory=True, persistent_workers=True)
 
     return train_dl, val_dl, full_dl, scale_values
 
@@ -157,7 +165,10 @@ def main():
         trainer = Trainer.create_trainer(params=checkpoint, features=features, scale_values=scale_values)
         trainer.load_training(parameters.model_name)
         trainer.perform_epoch(val_dl, 'val')
-        trainer.plot_prediction_vs_target(full_dl, parameters.split_percent, list(features.keys()))
+
+        # Plot
+        for asset in full_dl:
+            trainer.plot_prediction_vs_target(full_dl[asset], parameters.split_percent, list(features.keys()))
 
         breakpoint = None
 

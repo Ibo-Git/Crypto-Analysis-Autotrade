@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import numpy as np
+from functools import reduce
 
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout, max_len=5000):
@@ -95,7 +96,13 @@ class Trainer():
             loss.append(batch_loss)
             acc.append(batch_acc)
 
-        print(f'{mode}_loss: {sum(loss) / len(loss)}, {mode}_acc: {(sum(acc) / len(acc)).tolist()}')
+        acc_asset = {}
+        print(f'{mode}_loss: {np.mean(loss)}\n')
+
+        for asset in list(set(asset_tag)):
+            acc_asset[asset] = [np.mean(x) for x in zip(*[acc[n][asset] for n in range(len(acc))])]
+            print(f'{mode}_acc_{asset}: {acc_asset[asset]}\n')
+            
 
 
     def train_transformer(self, encoder_input, decoder_input, target_tensor, asset_tag):
@@ -113,7 +120,7 @@ class Trainer():
         loss.backward()
         self.optimizer.step()
         if self.scheduler is not None: self.scheduler.step()
-        acc = self.get_accuracy(output, target_tensor, asset_tag).to('cpu').detach()
+        acc = self.get_accuracy(output, target_tensor, asset_tag)
         
         return loss.item(), acc
 
@@ -129,7 +136,7 @@ class Trainer():
         # determine loss and accuracy
         output = self.model(encoder_input, decoder_input)
         loss = self.criterion(output, target_tensor).item()
-        acc = self.get_accuracy(output, target_tensor).to('cpu').detach()
+        acc = self.get_accuracy(output, target_tensor, asset_tag)
 
         return loss, acc
 
@@ -142,7 +149,7 @@ class Trainer():
 
         for asset in assets:
             entries_matching = np.array(asset_tag) == np.array(list([asset]) * len(asset_tag))
-            acc[asset] = torch.mean(torch.abs(scaled_output[entries_matching, :, :] - scaled_target[entries_matching, :, :]), [0, 1])
+            acc[asset] = torch.mean(torch.abs(scaled_output[entries_matching, :, :] - scaled_target[entries_matching, :, :]), [0, 1]).tolist()
 
         return acc
 
@@ -153,8 +160,8 @@ class Trainer():
 
         # a = feature_list[idx_inner]['scaling-interval'][0]
         # b = feature_list[idx_inner]['scaling-interval'][1]
-        # min = scale_values[asset_tag[sequence]]['min'][idx_inner]
-        # max = scale_values[asset_tag[sequence]]['max'][idx_inner]
+        # min = scale_values[asset_tag[idx_sequence]]['min'][idx_inner]
+        # max = scale_values[asset_tag[idx_sequence]]['max'][idx_inner]
         # scaled_data = (data - a) / (b - a) * (max - min) + min        with interval [a, b] 
 
         scaled_data = [[[((feature - feature_list[idx_inner]['scaling-interval'][0]) / (feature_list[idx_inner]['scaling-interval'][1] - feature_list[idx_inner]['scaling-interval'][0]) * (scale_values[asset_tag[idx_sequence]]['max'][idx_inner] - scale_values[asset_tag[idx_sequence]]['min'][idx_inner]) + scale_values[asset_tag[idx_sequence]]['min'][idx_inner]) for idx_inner, feature in enumerate(features)] for features in sequence] for idx_sequence, sequence in enumerate(data)]
@@ -252,7 +259,7 @@ class Trainer():
     def plot_prediction_vs_target(self, dataloader, split_percent, list_of_features):
 
         # get x and y data for plots
-        output_for_plot, target_for_plot = self.one_day_prediction_from_dataloader(dataloader)
+        output_for_plot, target_for_plot, asset_tag = self.one_day_prediction_from_dataloader(dataloader)
         x_axis = range(len(output_for_plot))
         train_index = int(split_percent * x_axis[-1])
         
@@ -276,6 +283,7 @@ class Trainer():
                 n += 1
   
         fig.tight_layout()
+        fig.suptitle(asset_tag)
         plt.show()
     
     
@@ -285,45 +293,19 @@ class Trainer():
 
         for encoder_input, decoder_input, target, asset_tag in dataloader:
             output = self.model(encoder_input.to(self.device), decoder_input.to(self.device))
+
+            #  scale values back to normal
+            #output = self.scale_assets_to_normal(output, asset_tag)
+            #target = self.scale_assets_to_normal(target, asset_tag)
+
+            # concatenate output and target to one single tensor
             output_for_plot = torch.cat((output_for_plot, output.to('cpu').detach()))
             target_for_plot = torch.cat((target_for_plot, target.to('cpu').detach()))
-
-        # scale values back to normal
-        output_for_plot = self.scale_assets_to_normal(output_for_plot, asset_tag)
-        target_for_plot = self.scale_assets_to_normal(target_for_plot, asset_tag)
         
-        return output_for_plot, target_for_plot
+        return output_for_plot, target_for_plot, asset_tag[0]
 
     
-    ## takes entire validation sequence, splits it into multiple sequences and predicts one day for each split 
-    #def predict_output_from_sequence(self, sequences, encoder_input_length, prediction_length):
-    #    output = []
-    #    target = []
-
-    #    for n in range(sequences.shape[1] - encoder_input_length - prediction_length):
-    #        encoder_input_for_plot = sequences[:, n:n + encoder_input_length, :]
-    #        target_for_plot = sequences[:, n + encoder_input_length:n + encoder_input_length + prediction_length, :]
-    #        output.append(self.predict_output(encoder_input_for_plot, target_for_plot).to('cpu').detach())
-    #        target.append(target_for_plot)
-
-    #    output = torch.cat(output)
-    #    target = torch.cat(target)
-    #    output_for_plot = (output[:, 0, 0] * self.asset_scaling).tolist()
-    #    target_for_plot = (target[:, 0, 0] * self.asset_scaling).tolist()
-
-    #    return output_for_plot, target_for_plot
-
-
-    #def predict_output(self, encoder_input, target_sequence):
-    #    decoder_input = -torch.ones(encoder_input.shape[-1]).unsqueeze(0).unsqueeze(0).double().to(self.device)
-    #    output =  torch.tensor([]).double().to(self.device)
-
-    #    for n in range(target_sequence.shape[1]):
-    #        output = self.model(encoder_input, torch.cat((decoder_input, output), 1)) # encoder_input [1, 1000, 4]
-    #    
-    #    return output
-
-    
+   
 
     
         
