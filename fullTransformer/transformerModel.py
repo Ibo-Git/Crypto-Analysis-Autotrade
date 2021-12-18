@@ -1,12 +1,14 @@
 import math
 import os
+from functools import reduce
 
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import matplotlib.pyplot as plt
-import numpy as np
-from functools import reduce
+from tqdm import tqdm
+
 
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout, max_len=5000):
@@ -85,23 +87,26 @@ class Trainer():
 
     def perform_epoch(self, dataloader, assets, mode):
         loss = []
-        acc = []
+        acc = {}
 
-        for encoder_input, decoder_input, expected_output, asset_tag in dataloader:
+        for asset in assets:
+            acc[asset] = []
+
+        for encoder_input, decoder_input, expected_output, asset_tag in tqdm(dataloader):
             if mode == 'train':
                 batch_loss, batch_acc = self.train_transformer(encoder_input, decoder_input, expected_output, asset_tag)
             elif mode == 'val':
                 batch_loss, batch_acc = self.evaluate_transformer(encoder_input, decoder_input, expected_output, asset_tag)
 
             loss.append(batch_loss)
-            acc.append(batch_acc)
 
-        acc_asset = {}
+            for asset in list(set(asset_tag)):
+                acc[asset].append(batch_acc[asset])
+
         print(f'{mode}_loss: {np.mean(loss)}\n')
 
         for asset in assets:
-            acc_asset[asset] = [np.mean(x) for x in zip(*[acc[n][asset] for n in range(len(acc))])]
-            print(f'{mode}_acc_{asset}: {acc_asset[asset]}\n')
+            print(f'{mode}_acc_{asset}: {np.mean(acc[asset], 0)}\n')
             
 
 
