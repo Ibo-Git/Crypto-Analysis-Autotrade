@@ -83,7 +83,7 @@ class Trainer():
         self.scale_values = scale_values
 
 
-    def perform_epoch(self, dataloader, mode):
+    def perform_epoch(self, dataloader, assets, mode):
         loss = []
         acc = []
 
@@ -99,7 +99,7 @@ class Trainer():
         acc_asset = {}
         print(f'{mode}_loss: {np.mean(loss)}\n')
 
-        for asset in list(set(asset_tag)):
+        for asset in assets:
             acc_asset[asset] = [np.mean(x) for x in zip(*[acc[n][asset] for n in range(len(acc))])]
             print(f'{mode}_acc_{asset}: {acc_asset[asset]}\n')
             

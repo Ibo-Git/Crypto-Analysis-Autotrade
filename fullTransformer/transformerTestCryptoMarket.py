@@ -90,10 +90,10 @@ class InitializeParameters():
             # Model
             'feature_size': 4,
             'encoder_input_length': self.encoder_input_length,
-            'n_heads': 4,
+            'n_heads': 2,
             'd_model': 512,
-            'num_encoder_layers': 2,
-            'num_decoder_layers': 2,
+            'num_encoder_layers': 1,
+            'num_decoder_layers': 1,
             'dropout': 0,
             # Optim
             'optim_name': 'Adam',
@@ -107,15 +107,30 @@ def main():
     # possible intervals: 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo
     # period depends on interval: 'max' for intervals > 1d, '60d' for 1d < interval < 1m, and for 1m set to 7d 
     assets = {
-        'BTC': {
+        'BTC-5m': {
             'api-name': 'BTC-USD',
-            'period': 'max',
-            'interval': '1d', 
+            'period': '60d',
+            'interval': '5m', 
         },
-        'ETH': {
+        'ETH-5m': {
             'api-name': 'ETH-USD',
-            'period': 'max',
-            'interval': '1d',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'BNB-5m': {
+            'api-name': 'BNB-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'SOL1-5m': {
+            'api-name': 'SOL1-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'XRP-5m': {
+            'api-name': 'XRP-USD',
+            'period': '60d',
+            'interval': '5m', 
         }
     }
 
@@ -155,16 +170,16 @@ def main():
 
         for epoch in range(1000):
             print(f' --- Epoch: {epoch + 1}')
-            trainer.perform_epoch(train_dl, 'train')
+            trainer.perform_epoch(train_dl, assets, 'train')
             trainer.save_training(parameters.model_name)
 
             if parameters.val_set_eval_during_training:
-               trainer.perform_epoch(val_dl, 'val')
+               trainer.perform_epoch(val_dl, assets, 'val')
     else:
         checkpoint = Trainer.load_checkpoint(parameters.model_name)
         trainer = Trainer.create_trainer(params=checkpoint, features=features, scale_values=scale_values)
         trainer.load_training(parameters.model_name)
-        trainer.perform_epoch(val_dl, 'val')
+        trainer.perform_epoch(val_dl, assets, 'val')
 
         # Plot
         for asset in full_dl:
