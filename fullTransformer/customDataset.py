@@ -24,9 +24,9 @@ class CustomDataset(Dataset):
         self.sos_token = -torch.ones(len(data[asset_key][0])).unsqueeze(0)
 
         for sequence in sequences:
-            self.encoder_input.append(torch.tensor(sequence[:encoder_input_length]))
-            self.decoder_input.append(torch.cat((self.sos_token, torch.tensor(sequence[encoder_input_length:sequence_length-1]))))
-            self.expected_output.append(torch.tensor(sequence[encoder_input_length:sequence_length]))
+            self.encoder_input.append(torch.tensor(sequence[:encoder_input_length]).double())
+            self.decoder_input.append(torch.cat((self.sos_token, torch.tensor(sequence[encoder_input_length:sequence_length-1]))).double())
+            self.expected_output.append(torch.tensor(sequence[encoder_input_length:sequence_length]).double())
 
 
     def __len__(self):
@@ -37,7 +37,7 @@ class CustomDataset(Dataset):
         decoder_input = self.decoder_input[idx]
         expected_output = self.expected_output[idx]
         asset_tag = self.asset_tag[idx]
-        return encoder_input.double(), decoder_input.double(), expected_output.double(), asset_tag
+        return encoder_input, decoder_input, expected_output, asset_tag
 
 
 
