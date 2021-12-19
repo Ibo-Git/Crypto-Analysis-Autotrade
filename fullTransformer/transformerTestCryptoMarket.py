@@ -64,8 +64,9 @@ class InitializeParameters():
         self. val_set_eval_during_training = False
         self.eval_mode = False
         self.load_model = False
-        self.model_name = 'large-1'
-    
+        #self.model_name = 'test-multi-asset-5m'
+        self.model_name = 'test-multi-asset-2m'
+
         self.split_percent = 0.9
         self.encoder_input_length = 12
         self.prediction_length = 1
@@ -106,50 +107,51 @@ def main():
     # possible intervals: 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo
     # period depends on interval: 'max' for intervals > 1d, '60d' for 1d < interval < 1m, and for 1m set to 7d 
     assets = {
-        'BTC-5m': {
+        'BTC-2m': {
             'api-name': 'BTC-USD',
             'period': '60d',
-            'interval': '5m', 
+            'interval': '2m', 
         },
-        'ETH-5m': {
+        'ETH-2m': {
             'api-name': 'ETH-USD',
             'period': '60d',
-            'interval': '5m', 
+            'interval': '2m', 
         },
-        'BNB-5m': {
+        'BNB-2m': {
             'api-name': 'BNB-USD',
             'period': '60d',
-            'interval': '5m', 
+            'interval': '2m', 
         },
-        'SOL1-5m': {
+        'SOL1-2m': {
             'api-name': 'SOL1-USD',
             'period': '60d',
-            'interval': '5m', 
+            'interval': '2m', 
         },
-        'XRP-5m': {
+        'XRP-2m': {
             'api-name': 'XRP-USD',
             'period': '60d',
-            'interval': '5m', 
+            'interval': '2m', 
         }
     }
 
-    features = {'open': {
-                    'scaling-mode': 'min-max-scaler',
-                    'scaling-interval': [0, 1]
-                },
-                'high': {
-                    'scaling-mode': 'min-max-scaler',
-                    'scaling-interval': [0, 1]
-                },
-                'low': {
-                    'scaling-mode': 'min-max-scaler',
-                    'scaling-interval': [0, 1]
-                },
-                'close': {
-                    'scaling-mode': 'min-max-scaler',
-                    'scaling-interval': [0, 1]
-                }
-            }
+    features = {
+        'open': {
+            'scaling-mode': 'min-max-scaler',
+            'scaling-interval': [0, 1]
+        },
+        'high': {
+            'scaling-mode': 'min-max-scaler',
+            'scaling-interval': [0, 1]
+        },
+        'low': {
+            'scaling-mode': 'min-max-scaler',
+            'scaling-interval': [0, 1]
+        },
+        'close': {
+            'scaling-mode': 'min-max-scaler',
+            'scaling-interval': [0, 1]
+        }
+    }
 
     parameters = InitializeParameters()
     train_dl, val_dl, full_dl, scale_values = data_preprocessing(parameters, assets, features)
@@ -165,7 +167,7 @@ def main():
             checkpoint = Trainer.load_checkpoint(parameters.model_name)
             trainer = Trainer.create_trainer(params=checkpoint, features=features, scale_values=scale_values)
             trainer.load_training(parameters.model_name)
-            trainer.set_learningrate(parameters.lr_overwrite_for_load)
+            if parameters.lr_overwrite_for_load != None: trainer.set_learningrate(parameters.lr_overwrite_for_load)
 
         for epoch in range(1000):
             print(f' --- Epoch: {epoch + 1}')

@@ -210,6 +210,7 @@ class Trainer():
             # States
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
+            'lr': self.get_learningrate(),
 
             # Hyperparameters
             # Model
@@ -240,6 +241,7 @@ class Trainer():
         if checkpoint:
             self.model.load_state_dict(checkpoint['model_state_dict'])
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.set_learningrate(checkpoint['lr'])
         else:
             print('Model to load does not exist.')
 
