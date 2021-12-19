@@ -43,8 +43,14 @@ def data_preprocessing(params, assets, features):
         train_sequences[asset] = data[asset][0:math.floor(len(data[asset]) * params.split_percent)]
         val_sequences[asset] = data[asset][math.floor(len(data[asset]) * params.split_percent):]
 
-    train_ds = CustomDataset(train_sequences, params.encoder_input_length, params.prediction_length)
-    val_ds = CustomDataset(val_sequences, params.encoder_input_length, params.prediction_length)
+    layer_features = {
+        'encoder_features': [n for n in range(len(features)) if 'enc' in list(features.values())[n]['used-by-layer']],
+        'decoder_features': [n for n in range(len(features)) if 'dec' in list(features.values())[n]['used-by-layer']]
+    }
+
+
+    train_ds = CustomDataset(train_sequences, layer_features, params.encoder_input_length, params.prediction_length)
+    val_ds = CustomDataset(val_sequences, layer_features, params.encoder_input_length, params.prediction_length)
     train_dl = DataLoader(train_ds, batch_size=params.batch_size['training'], shuffle=True, num_workers=0, pin_memory=True, persistent_workers=False)
     val_dl = DataLoader(val_ds, batch_size=params.batch_size['validation'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
 
@@ -53,7 +59,7 @@ def data_preprocessing(params, assets, features):
     full_dl = {}
 
     for asset_key, asset in data.items():
-        full_ds[asset_key] = CustomDataset({asset_key: asset}, params.encoder_input_length, params.prediction_length)
+        full_ds[asset_key] = CustomDataset({asset_key: asset}, layer_features, params.encoder_input_length, params.prediction_length)
         full_dl[asset_key] = DataLoader(full_ds[asset_key], batch_size=params.batch_size['plot'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
 
     return train_dl, val_dl, full_dl, scale_values
@@ -81,7 +87,6 @@ class InitializeParameters():
         # Hyperparameters
         self.params = {
             # Model
-            'feature_size': 4,
             'encoder_input_length': self.encoder_input_length,
             'n_heads': 2,
             'd_model': 512,
@@ -112,45 +117,31 @@ def main():
             'api-name': 'BTC-USD',
             'period': '60d',
             'interval': '2m', 
-        },
-        'ETH-2m': {
-            'api-name': 'ETH-USD',
-            'period': '60d',
-            'interval': '2m', 
-        },
-        'BNB-2m': {
-            'api-name': 'BNB-USD',
-            'period': '60d',
-            'interval': '2m', 
-        },
-        'SOL1-2m': {
-            'api-name': 'SOL1-USD',
-            'period': '60d',
-            'interval': '2m', 
-        },
-        'XRP-2m': {
-            'api-name': 'XRP-USD',
-            'period': '60d',
-            'interval': '2m', 
         }
+        
     }
 
     features = {
         'open': {
             'scaling-mode': 'min-max-scaler',
-            'scaling-interval': [0, 1]
+            'scaling-interval': [0, 1],
+            'used-by-layer': ['enc', 'dec'] 
         },
         'high': {
             'scaling-mode': 'min-max-scaler',
-            'scaling-interval': [0, 1]
+            'scaling-interval': [0, 1],
+            'used-by-layer': ['enc', 'dec'] 
+
         },
         'low': {
             'scaling-mode': 'min-max-scaler',
-            'scaling-interval': [0, 1]
+            'scaling-interval': [0, 1],
+            'used-by-layer': ['enc', 'dec'] 
         },
         'close': {
             'scaling-mode': 'min-max-scaler',
-            'scaling-interval': [0, 1]
+            'scaling-interval': [0, 1],
+            'used-by-layer': ['enc', 'dec'] 
         }
     }
 

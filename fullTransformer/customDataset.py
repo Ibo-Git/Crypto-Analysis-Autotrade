@@ -5,7 +5,7 @@ from torch.utils.data import Dataset
 
 
 class CustomDataset(Dataset):
-    def __init__(self, data, encoder_input_length=50, prediction_length=1):
+    def __init__(self, data, layer_features, encoder_input_length=50, prediction_length=1):
         
         # split entire history into sequences
         sequence_length = encoder_input_length + prediction_length
@@ -24,10 +24,10 @@ class CustomDataset(Dataset):
         self.sos_token = -torch.ones(len(data[asset_key][0])).unsqueeze(0)
 
         for sequence in sequences:
-            self.encoder_input.append(torch.tensor(sequence[:encoder_input_length]).double())
-            self.decoder_input.append(torch.tile(self.sos_token, (prediction_length, 1)).double())
+            self.encoder_input.append(torch.tensor(sequence[:encoder_input_length])[:, layer_features['encoder_features']].double())
+            self.decoder_input.append(torch.tile(self.sos_token, (prediction_length, 1))[:, layer_features['decoder_features']].double())
             # self.decoder_input.append(torch.cat((self.sos_token, torch.tensor(sequence[encoder_input_length:sequence_length-1]))).double())
-            self.expected_output.append(torch.tensor(sequence[encoder_input_length:sequence_length]).double())
+            self.expected_output.append(torch.tensor(sequence[encoder_input_length:sequence_length])[:, layer_features['decoder_features']].double())
 
 
     def __len__(self):
