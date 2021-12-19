@@ -91,8 +91,15 @@ class InitializeParameters():
             'optim_name': 'Adam',
             'optim_lr': 0.0001,
             # Loss
-            'loss_name': 'MSELoss',
+            'loss_name': 'MSELoss'
         }
+
+        self.param_adjust_lr = {
+            'n_batches_lr': 20,
+            'lr_decay_factor': 10,
+            'loss_decay': 0.1,
+        }
+        
 
 
 def main():
@@ -162,7 +169,7 @@ def main():
 
         for epoch in range(1000):
             print(f' --- Epoch: {epoch + 1}')
-            trainer.perform_epoch(train_dl, assets, 'train')
+            trainer.perform_epoch(train_dl, assets, 'train', parameters.param_adjust_lr)
             trainer.save_training(parameters.model_name)
 
             if parameters.val_set_eval_during_training:

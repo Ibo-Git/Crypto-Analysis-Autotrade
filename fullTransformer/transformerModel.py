@@ -85,20 +85,30 @@ class Trainer():
         self.scale_values = scale_values
 
 
-    def perform_epoch(self, dataloader, assets, mode):
+    def perform_epoch(self, dataloader, assets, mode, param_lr=None):
         loss = []
         acc = {}
-
+        
         for asset in assets:
             acc[asset] = []
 
-        for encoder_input, decoder_input, expected_output, asset_tag in tqdm(dataloader):
+        for num_batch, (encoder_input, decoder_input, expected_output, asset_tag) in enumerate(tqdm(dataloader)):
             if mode == 'train':
                 batch_loss, batch_acc = self.train_transformer(encoder_input, decoder_input, expected_output, asset_tag)
             elif mode == 'val':
-                batch_loss, batch_acc = self.evaluate_transformer(encoder_input, decoder_input, expected_output, asset_tag)
+                batch_loss, batch_acc = self.evaluate_transformer(encoder_input, decoder_input, expected_output, asset_tag)                
 
             loss.append(batch_loss)
+
+            if param_lr is not None:
+                if num_batch % param_lr.n_batches_lr == 0 and num_batch >= 2 * param_lr.n_batches_lr:
+                    pre_av_loss = np.mean(loss[-2 * param_lr.n_batches_lr:-param_lr.n_batches_lr])
+                    curr_av_loss = np.mean(loss[-param_lr.n_batches_lr:])
+
+                    if (pre_av_loss - curr_av_loss) / pre_av_loss < param_lr.loss_decay: # 1 = high decay, 0 = no decay
+                        curr_lr = self.get_learningrate()
+                        self.set_learningrate(curr_lr / param_lr.lr_decay_factor)
+                    
 
             for asset in list(set(asset_tag)):
                 acc[asset].append(batch_acc[asset])
@@ -178,6 +188,9 @@ class Trainer():
         for g in self.optimizer.param_groups:
             g['lr'] = new_lr
 
+    def get_learningrate(self):
+        for g in self.optimizer.param_groups:
+            return g['lr']
 
     def save_training(self, modelname):
         if not os.path.isdir('savedFiles'):
