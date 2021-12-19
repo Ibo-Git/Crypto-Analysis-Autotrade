@@ -101,13 +101,13 @@ class Trainer():
             loss.append(batch_loss)
 
             if param_lr is not None:
-                if num_batch % param_lr.n_batches_lr == 0 and num_batch >= 2 * param_lr.n_batches_lr:
-                    pre_av_loss = np.mean(loss[-2 * param_lr.n_batches_lr:-param_lr.n_batches_lr])
-                    curr_av_loss = np.mean(loss[-param_lr.n_batches_lr:])
+                if num_batch % param_lr['n_batches_lr'] == 0 and num_batch >= 2 * param_lr['n_batches_lr']:
+                    pre_av_loss = np.mean(loss[-2 * param_lr['n_batches_lr']:-param_lr['n_batches_lr']])
+                    curr_av_loss = np.mean(loss[-param_lr['n_batches_lr']:])
 
-                    if (pre_av_loss - curr_av_loss) / pre_av_loss < param_lr.loss_decay: # 1 = high decay, 0 = no decay
+                    if (pre_av_loss - curr_av_loss) / pre_av_loss < param_lr['loss_decay']: # 1 = high decay, 0 = no decay
                         curr_lr = self.get_learningrate()
-                        self.set_learningrate(curr_lr / param_lr.lr_decay_factor)
+                        self.set_learningrate(curr_lr / param_lr['lr_decay_factor'])
                     
 
             for asset in list(set(asset_tag)):
