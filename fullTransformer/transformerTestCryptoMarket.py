@@ -69,7 +69,7 @@ class InitializeParameters():
 
         self.split_percent = 0.9
         self.encoder_input_length = 60
-        self.prediction_length = 1
+        self.prediction_length = 3
         self.lr_overwrite_for_load = None 
 
         self.batch_size = {

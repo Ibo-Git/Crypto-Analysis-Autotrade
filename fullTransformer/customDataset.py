@@ -25,7 +25,8 @@ class CustomDataset(Dataset):
 
         for sequence in sequences:
             self.encoder_input.append(torch.tensor(sequence[:encoder_input_length]).double())
-            self.decoder_input.append(torch.cat((self.sos_token, torch.tensor(sequence[encoder_input_length:sequence_length-1]))).double())
+            self.decoder_input.append(torch.tile(self.sos_token, (prediction_length, 1)).double())
+            # self.decoder_input.append(torch.cat((self.sos_token, torch.tensor(sequence[encoder_input_length:sequence_length-1]))).double())
             self.expected_output.append(torch.tensor(sequence[encoder_input_length:sequence_length]).double())
 
 
