@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils import data
 from tqdm import tqdm
 
 
@@ -88,16 +89,18 @@ class Trainer():
     def perform_epoch(self, dataloader, assets, mode, param_lr=None):
         loss = []
         acc = {}
-        
+        pbar = tqdm(dataloader)
+
         for asset in assets:
             acc[asset] = []
-
-        for num_batch, (encoder_input, decoder_input, expected_output, asset_tag) in enumerate(tqdm(dataloader)):
+        
+        for num_batch, (encoder_input, decoder_input, expected_output, asset_tag) in enumerate(pbar):
             if mode == 'train':
                 batch_loss, batch_acc = self.train_transformer(encoder_input, decoder_input, expected_output, asset_tag)
             elif mode == 'val':
                 batch_loss, batch_acc = self.evaluate_transformer(encoder_input, decoder_input, expected_output, asset_tag)                
-
+            
+            pbar.set_postfix({'loss': batch_loss})
             loss.append(batch_loss)
 
             if param_lr is not None:
@@ -109,7 +112,6 @@ class Trainer():
                         curr_lr = self.get_learningrate()
                         self.set_learningrate(curr_lr / param_lr['lr_decay_factor'])
                     
-
             for asset in list(set(asset_tag)):
                 acc[asset].append(batch_acc[asset])
 
@@ -118,7 +120,6 @@ class Trainer():
         for asset in assets:
             print(f'{mode}_acc_{asset}: {np.mean(acc[asset], 0)}\n')
             
-
 
     def train_transformer(self, encoder_input, decoder_input, target_tensor, asset_tag):
         self.model.train()
