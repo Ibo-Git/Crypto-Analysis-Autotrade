@@ -89,29 +89,35 @@ class Trainer():
     def perform_epoch(self, dataloader, assets, mode, param_lr=None):
         loss = []
         acc = {}
+        curr_avg_loss = 0
         pbar = tqdm(dataloader)
 
-        for asset in assets:
-            acc[asset] = []
+        for asset in assets: acc[asset] = []
         
+        # train or validate an entire epoch
         for num_batch, (encoder_input, decoder_input, expected_output, asset_tag) in enumerate(pbar):
             if mode == 'train':
                 batch_loss, batch_acc = self.train_transformer(encoder_input, decoder_input, expected_output, asset_tag)
             elif mode == 'val':
                 batch_loss, batch_acc = self.evaluate_transformer(encoder_input, decoder_input, expected_output, asset_tag)                
             
-            pbar.set_postfix({'loss': batch_loss})
+            pbar.set_postfix({'loss': batch_loss, 'avg_loss': curr_avg_loss, 'curr_lr': self.get_learningrate()})
             loss.append(batch_loss)
 
+            # adjust learning rate during training if parameters are available
             if param_lr is not None:
                 if num_batch % param_lr['n_batches_lr'] == 0 and num_batch >= 2 * param_lr['n_batches_lr']:
-                    pre_av_loss = np.mean(loss[-2 * param_lr['n_batches_lr']:-param_lr['n_batches_lr']])
-                    curr_av_loss = np.mean(loss[-param_lr['n_batches_lr']:])
+                    prev_avg_loss = np.mean(loss[-2 * param_lr['n_batches_lr']:-param_lr['n_batches_lr']])
+                    curr_avg_loss = np.mean(loss[-param_lr['n_batches_lr']:])
 
-                    if (pre_av_loss - curr_av_loss) / pre_av_loss < param_lr['loss_decay']: # 1 = high decay, 0 = no decay
+                    if (prev_avg_loss - curr_avg_loss) / prev_avg_loss < param_lr['loss_decay']: # 1 = high decay, 0 = no decay
                         curr_lr = self.get_learningrate()
                         self.set_learningrate(curr_lr / param_lr['lr_decay_factor'])
-                    
+                
+                    pbar.set_postfix({'avg_loss': curr_avg_loss})
+
+            
+            # get accuracy for every asset separately
             for asset in list(set(asset_tag)):
                 acc[asset].append(batch_acc[asset])
 
