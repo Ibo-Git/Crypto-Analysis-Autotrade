@@ -61,19 +61,19 @@ def data_preprocessing(params, assets, features):
 
 class InitializeParameters():
     def __init__(self):
-        self. val_set_eval_during_training = False
+        self.val_set_eval_during_training = True
         self.eval_mode = False
         self.load_model = False
         #self.model_name = 'test-multi-asset-5m'
-        self.model_name = 'test-multi-asset-2m'
+        self.model_name = 'test-multi-asset-2m-60'
 
         self.split_percent = 0.9
-        self.encoder_input_length = 12
+        self.encoder_input_length = 60
         self.prediction_length = 1
-        self.lr_overwrite_for_load = 0.0001 
+        self.lr_overwrite_for_load = None 
 
         self.batch_size = {
-            'training': 256, 
+            'training': 64, 
             'validation': 256, 
             'plot': 512
         }
@@ -96,9 +96,10 @@ class InitializeParameters():
         }
 
         self.param_adjust_lr = {
-            'n_batches_lr': 20,
-            'lr_decay_factor': 10,
-            'loss_decay': 0.1,
+            'n_batches_lr': 200,
+            'lr_decay_factor': 5,
+            'loss_decay': 0.05,
+            'min_lr': 0.00000001
         }
         
 
