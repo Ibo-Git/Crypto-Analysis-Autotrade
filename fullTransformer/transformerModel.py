@@ -90,6 +90,7 @@ class Trainer():
         acc = {}
         prev_avg_loss = 0
         curr_avg_loss = 0
+        n_batches_lr = len(dataloader) // 4
         pbar = tqdm(dataloader)
 
         for asset in assets: acc[asset] = []
@@ -106,9 +107,9 @@ class Trainer():
 
             # adjust learning rate during training if parameters are available
             if param_lr is not None:
-                if num_batch % param_lr['n_batches_lr'] == 0 and num_batch >= 2 * param_lr['n_batches_lr']:
-                    prev_avg_loss = np.mean(loss[-2 * param_lr['n_batches_lr']:-param_lr['n_batches_lr']])
-                    curr_avg_loss = np.mean(loss[-param_lr['n_batches_lr']:])
+                if num_batch % n_batches_lr == 0 and num_batch >= 2 * n_batches_lr:
+                    prev_avg_loss = np.mean(loss[-2 * n_batches_lr:-n_batches_lr])
+                    curr_avg_loss = np.mean(loss[-n_batches_lr:])
 
                     if (prev_avg_loss - curr_avg_loss) / prev_avg_loss < param_lr['loss_decay']: # 1 = high decay, 0 = no decay
                         curr_lr = self.get_learningrate()
@@ -291,9 +292,9 @@ class Trainer():
         
         # create subplots for all features
         num_features = output_for_plot.shape[-1]
-        num_features_x = num_features - num_features // 2
-        num_features_y = max(1, num_features // 2)
-        fig, axs = plt.subplots(num_features_x, num_features_y)
+        num_features_x = 1 if num_features <= 2 else (2 if num_features <= 6 else 3)
+        num_features_y = max(1, math.ceil(num_features / num_features_x))
+        fig, axs = plt.subplots(num_features_x, num_features_y, squeeze=False)
         
         n = 0
         for n_x in range(num_features_x):

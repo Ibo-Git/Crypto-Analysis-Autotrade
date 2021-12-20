@@ -68,10 +68,10 @@ def data_preprocessing(params, assets, features):
 class InitializeParameters():
     def __init__(self):
         self.val_set_eval_during_training = True
-        self.eval_mode = False
-        self.load_model = False
+        self.eval_mode = True
+        self.load_model = True
         #self.model_name = 'test-multi-asset-5m'
-        self.model_name = 'test-multi-asset-2m-60'
+        self.model_name = 'och_l-60-3-btc'
 
         self.split_percent = 0.9
         self.encoder_input_length = 60
@@ -101,10 +101,9 @@ class InitializeParameters():
         }
 
         self.param_adjust_lr = {
-            'n_batches_lr': 200,
             'lr_decay_factor': 5,
             'loss_decay': 0.05,
-            'min_lr': 0.00000001
+            'min_lr': 0.0000035
         }
         
 
@@ -117,31 +116,50 @@ def main():
             'api-name': 'BTC-USD',
             'period': '60d',
             'interval': '2m', 
+        },
+        'BNB-2m': {
+            'api-name': 'BNB-USD',
+            'period': '60d',
+            'interval': '2m', 
+        },
+        'XRP-2m': {
+            'api-name': 'XRP-USD',
+            'period': '60d',
+            'interval': '2m', 
+        },
+        'SOL1-2m': {
+            'api-name': 'SOL1-USD',
+            'period': '60d',
+            'interval': '2m', 
+        },
+        'ETH-2m': {
+            'api-name': 'ETH-USD',
+            'period': '60d',
+            'interval': '2m', 
         }
-        
     }
 
     features = {
         'open': {
             'scaling-mode': 'min-max-scaler',
             'scaling-interval': [0, 1],
-            'used-by-layer': ['enc', 'dec'] 
+            'used-by-layer': ['enc'] 
         },
         'high': {
             'scaling-mode': 'min-max-scaler',
             'scaling-interval': [0, 1],
-            'used-by-layer': ['enc', 'dec'] 
+            'used-by-layer': ['enc'] 
 
         },
         'low': {
             'scaling-mode': 'min-max-scaler',
             'scaling-interval': [0, 1],
-            'used-by-layer': ['enc', 'dec'] 
+            'used-by-layer': ['dec'] 
         },
         'close': {
             'scaling-mode': 'min-max-scaler',
             'scaling-interval': [0, 1],
-            'used-by-layer': ['enc', 'dec'] 
+            'used-by-layer': ['enc'] 
         }
     }
 
