@@ -49,8 +49,8 @@ def data_preprocessing(params, assets, features):
     }
 
 
-    train_ds = CustomDataset(train_sequences, layer_features, params.encoder_input_length, params.prediction_length)
-    val_ds = CustomDataset(val_sequences, layer_features, params.encoder_input_length, params.prediction_length)
+    train_ds = CustomDataset(train_sequences, layer_features, params.encoder_input_length, params.prediction_length, shift=params.shift)
+    val_ds = CustomDataset(val_sequences, layer_features, params.encoder_input_length, params.prediction_length, params.shift)
     train_dl = DataLoader(train_ds, batch_size=params.batch_size['training'], shuffle=True, num_workers=0, pin_memory=True, persistent_workers=False)
     val_dl = DataLoader(val_ds, batch_size=params.batch_size['validation'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
 
@@ -59,7 +59,7 @@ def data_preprocessing(params, assets, features):
     full_dl = {}
 
     for asset_key, asset in data.items():
-        full_ds[asset_key] = CustomDataset({asset_key: asset}, layer_features, params.encoder_input_length, params.prediction_length)
+        full_ds[asset_key] = CustomDataset({asset_key: asset}, layer_features, params.encoder_input_length, params.prediction_length, params.shift)
         full_dl[asset_key] = DataLoader(full_ds[asset_key], batch_size=params.batch_size['plot'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
 
     return train_dl, val_dl, full_dl, scale_values
@@ -76,6 +76,7 @@ class InitializeParameters():
         self.split_percent = 0.9
         self.encoder_input_length = 60
         self.prediction_length = 3
+        self.shift = 5
         self.lr_overwrite_for_load = None 
 
         self.batch_size = {
@@ -92,6 +93,7 @@ class InitializeParameters():
             'd_model': 512,
             'num_encoder_layers': 1,
             'num_decoder_layers': 1,
+            'dim_feedforawrd': 2048, 
             'dropout': 0,
             # Optim
             'optim_name': 'Adam',

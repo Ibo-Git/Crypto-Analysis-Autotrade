@@ -29,7 +29,7 @@ class PositionalEncoding(nn.Module):
 
 
 class TransformerModel(nn.Module):
-    def __init__(self, enc_feature_size, dec_feature_size, encoder_input_length, d_model, n_heads, num_encoder_layers, num_decoder_layers, dropout, device):
+    def __init__(self, enc_feature_size, dec_feature_size, encoder_input_length, d_model, n_heads, num_encoder_layers, num_decoder_layers, dim_feedforward, dropout, device):
         super(TransformerModel, self).__init__()
         self.device = device
 
@@ -39,6 +39,7 @@ class TransformerModel(nn.Module):
         self.n_heads = n_heads
         self.num_encoder_layers = num_encoder_layers
         self.num_decoder_layers = num_decoder_layers
+        self.dim_feedforward = dim_feedforward
         self.dropout = dropout
 
         # 3 different layers use dropout, each layer gets a dropout values such that all dropouts together equal the needed dropout
@@ -49,7 +50,7 @@ class TransformerModel(nn.Module):
         self.fc_layer_tgt = nn.Linear(dec_feature_size, d_model)
         self.positional_encoder_src = PositionalEncoding(d_model=d_model, dropout=dropout, max_len=encoder_input_length)   
         self.positional_encoder_tgt = PositionalEncoding(d_model=d_model, dropout=dropout, max_len=encoder_input_length)
-        self.transformer = nn.Transformer(d_model=d_model, nhead=n_heads, num_encoder_layers=num_encoder_layers, num_decoder_layers=num_decoder_layers, batch_first=True, dropout=dropout)
+        self.transformer = nn.Transformer(d_model=d_model, nhead=n_heads, num_encoder_layers=num_encoder_layers, num_decoder_layers=num_decoder_layers, dim_feedforward=dim_feedforward, batch_first=True, dropout=dropout)
         self.fc_layer_flatten = nn.Linear(d_model, dec_feature_size)
 
         self.double()
@@ -217,6 +218,7 @@ class Trainer():
             'd_model': self.model.d_model,
             'num_encoder_layers': self.model.num_encoder_layers,
             'num_decoder_layers': self.model.num_decoder_layers,
+            'dim_feedforward': self.model.dim_feedforward,
             'dropout': self.model.dropout,
             # Optim
             'optim_name': self.optim_name,
@@ -251,6 +253,7 @@ class Trainer():
         d_model = params['d_model']
         num_encoder_layers = params['num_encoder_layers']
         num_decoder_layers = params['num_decoder_layers']
+        dim_feedforward = params['dim_feedforward']
         dropout = params['dropout']
         optim_lr = params['optim_lr']
         optim_name = params['optim_name']
@@ -266,7 +269,8 @@ class Trainer():
             n_heads=n_heads, 
             d_model=d_model, 
             num_encoder_layers=num_encoder_layers, 
-            num_decoder_layers=num_decoder_layers, 
+            num_decoder_layers=num_decoder_layers,
+            dim_feedforward=dim_feedforward,
             dropout=dropout,
             device=device
         ).to(device)
