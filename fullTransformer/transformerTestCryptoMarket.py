@@ -67,9 +67,9 @@ def data_preprocessing(params, assets, features):
 
 class InitializeParameters():
     def __init__(self):
-        self.val_set_eval_during_training = True
-        self.eval_mode = True
-        self.load_model = True
+        self.val_set_eval_during_training = False
+        self.eval_mode = False
+        self.load_model = False
         #self.model_name = 'test-multi-asset-5m'
         self.model_name = 'och_l-60-3-btc'
 
@@ -93,7 +93,7 @@ class InitializeParameters():
             'd_model': 512,
             'num_encoder_layers': 1,
             'num_decoder_layers': 1,
-            'dim_feedforawrd': 2048, 
+            'dim_feedforward': 2048, 
             'dropout': 0,
             # Optim
             'optim_name': 'Adam',
