@@ -178,6 +178,7 @@ class Trainer():
         scale_values = self.scale_values
         features = self.features
         feature_list = list(features.values())
+        decoder_features = [n for n in range(len(features)) if 'dec' in feature_list[n]['used-by-layer']]
 
         # a = feature_list[idx_inner]['scaling-interval'][0]
         # b = feature_list[idx_inner]['scaling-interval'][1]
@@ -185,7 +186,12 @@ class Trainer():
         # max = scale_values[asset_tag[idx_sequence]]['max'][idx_inner]
         # scaled_data = (data - a) / (b - a) * (max - min) + min        with interval [a, b] 
 
-        scaled_data = [[[((feature - feature_list[idx_inner]['scaling-interval'][0]) / (feature_list[idx_inner]['scaling-interval'][1] - feature_list[idx_inner]['scaling-interval'][0]) * (scale_values[asset_tag[idx_sequence]]['max'][idx_inner] - scale_values[asset_tag[idx_sequence]]['min'][idx_inner]) + scale_values[asset_tag[idx_sequence]]['min'][idx_inner]) for idx_inner, feature in enumerate(features)] for features in sequence] for idx_sequence, sequence in enumerate(data)]
+        scaled_data = [[[(
+            (feature - feature_list[decoder_features[idx_inner]]['scaling-interval'][0]) / # (data - a)
+            (feature_list[decoder_features[idx_inner]]['scaling-interval'][1] - feature_list[decoder_features[idx_inner]]['scaling-interval'][0]) * # (b - a)
+            (scale_values[asset_tag[idx_sequence]]['max'][decoder_features[idx_inner]] - scale_values[asset_tag[idx_sequence]]['min'][decoder_features[idx_inner]]) + # (max - min)
+            scale_values[asset_tag[idx_sequence]]['min'][decoder_features[idx_inner]] # min
+            ) for idx_inner, feature in enumerate(features)] for features in sequence] for idx_sequence, sequence in enumerate(data)]
 
         return torch.tensor(scaled_data)
 
@@ -310,7 +316,7 @@ class Trainer():
                 axs[n_x, n_y].legend(loc = "upper left")
                 axs[n_x, n_y].set_title(f"Prediction vs Target - Feature '{list_of_features[n]}'")
                 axs[n_x, n_y].set_xlabel('Time')
-                axs[n_x, n_y].set_ylabel('Bitcoin value in USD')
+                axs[n_x, n_y].set_ylabel(f'{asset_tag} value in USD')
                 n += 1
   
         fig.tight_layout()
@@ -326,8 +332,8 @@ class Trainer():
             output = self.model(encoder_input.to(self.device), decoder_input.to(self.device))
 
             #  scale values back to normal
-            #output = self.scale_assets_to_normal(output, asset_tag)
-            #target = self.scale_assets_to_normal(target, asset_tag)
+            output = self.scale_assets_to_normal(output, asset_tag)
+            target = self.scale_assets_to_normal(target, asset_tag)
 
             # concatenate output and target to one single tensor
             output_for_plot = torch.cat((output_for_plot, output.to('cpu').detach()))
