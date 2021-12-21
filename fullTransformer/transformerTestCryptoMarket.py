@@ -210,8 +210,9 @@ def main():
         trainer.perform_epoch(val_dl, assets, 'val')
 
         # Plot
+        decoder_feature_list = [feature for n, feature in enumerate(features) if 'dec' in list(features.values())[n]['used-by-layer']]
         for asset in full_dl:
-            trainer.plot_prediction_vs_target(full_dl[asset], parameters.split_percent, list(features.keys()))
+            trainer.plot_prediction_vs_target(full_dl[asset], parameters.split_percent, decoder_feature_list)
 
         breakpoint = None
 
