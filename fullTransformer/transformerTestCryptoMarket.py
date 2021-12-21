@@ -19,23 +19,33 @@ def data_preprocessing(params, assets, features):
         crypto_df = yf.download(tickers=asset['api-name'], period=asset['period'], interval=asset['interval'])
         data[asset_key] = []
 
+        last_row_close = 0
+
         for index, row in crypto_df.iterrows():
             data[asset_key] .append([
                 row['Open'], 
                 row['High'], 
                 row['Low'], 
-                row['Close']
+                row['Close'],
+                1 if last_row_close <= row['Close'] else 0
             ])
+
+            last_row_close = row['Close']
     
     # scaling
     scale_values = {}
     train_sequences = {}
     val_sequences = {}
+    features_len = len(features.values())
+    import timeit
+    from operator import itemgetter
+
 
     for asset in data:
+        #scale_values[asset] = reduce(lambda l, c: [[min(v[0], c[i]), max(v[1], c[i])] for i, v in enumerate(l)], data[asset], [[9999999999, -9999999999] for _ in range(features_len)])
         scale_values[asset] = {
-            'min': reduce(min, data[asset]), 
-            'max': reduce(max, data[asset])
+            'min': [min(data[asset], key=itemgetter(n))[n] for n in range(features_len)], 
+            'max': [max(data[asset], key=itemgetter(n))[n] for n in range(features_len)]
         }
 
         feature_list = list(features.values())
@@ -114,30 +124,30 @@ def main():
     # possible intervals: 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo
     # period depends on interval: 'max' for intervals > 1d, '60d' for 1d < interval < 1m, and for 1m set to 7d 
     assets = {
-        'BTC-2m': {
+        'BTC-5m': {
             'api-name': 'BTC-USD',
             'period': '60d',
-            'interval': '2m', 
+            'interval': '5m', 
         },
-        'BNB-2m': {
+        'BNB-5m': {
             'api-name': 'BNB-USD',
             'period': '60d',
-            'interval': '2m', 
+            'interval': '5m', 
         },
-        'XRP-2m': {
+        'XRP-5m': {
             'api-name': 'XRP-USD',
             'period': '60d',
-            'interval': '2m', 
+            'interval': '5m', 
         },
-        'SOL1-2m': {
+        'SOL1-5m': {
             'api-name': 'SOL1-USD',
             'period': '60d',
-            'interval': '2m', 
+            'interval': '5m', 
         },
-        'ETH-2m': {
+        'ETH-5m': {
             'api-name': 'ETH-USD',
             'period': '60d',
-            'interval': '2m', 
+            'interval': '5m', 
         }
     }
 
@@ -162,6 +172,11 @@ def main():
             'scaling-mode': 'min-max-scaler',
             'scaling-interval': [0, 1],
             'used-by-layer': ['enc'] 
+        },
+        'test': {
+            'scaling-mode': 'min-max-scaler',
+            'scaling-interval': [0, 1],
+            'used-by-layer': ['enc']
         }
     }
 
