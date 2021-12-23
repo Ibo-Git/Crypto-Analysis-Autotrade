@@ -1,5 +1,6 @@
 import math
 from functools import reduce
+from operator import itemgetter
 
 import numpy as np
 import torch
@@ -14,7 +15,7 @@ from transformerModel import Trainer, TransformerModel
 
 def data_preprocessing(params, assets, features):
     data = {}
-    
+
     for asset_key, asset in assets.items():
         crypto_df = yf.download(tickers=asset['api-name'], period=asset['period'], interval=asset['interval'])
         data[asset_key] = []
@@ -31,15 +32,31 @@ def data_preprocessing(params, assets, features):
             ])
 
             last_row_close = row['Close']
-    
+
+    # create copy of data before scaling: used for calculating change in assets
+    data_raw = data.copy()
+    train_sequences_raw = {}
+    val_sequences_raw = {}
+    feature_avg_train = {}
+    feature_avg_val = {}
+
+    for asset in data:
+        train_sequences_raw[asset] = data_raw[asset][0:math.floor(len(data_raw[asset]) * params.split_percent)]
+        val_sequences_raw[asset] = data_raw[asset][math.floor(len(data_raw[asset]) * params.split_percent):]
+        feature_avg_train[asset] = np.mean(np.abs(np.diff(list(zip(*train_sequences_raw[asset])))), 1)
+        feature_avg_val[asset] = np.mean(np.abs(np.diff(list(zip(*val_sequences_raw[asset])))), 1)
+
+    feature_avg = {
+        'train': feature_avg_train, 
+        'val': feature_avg_val
+    }
+
+
     # scaling
     scale_values = {}
     train_sequences = {}
     val_sequences = {}
     features_len = len(features.values())
-    import timeit
-    from operator import itemgetter
-
 
     for asset in data:
         #scale_values[asset] = reduce(lambda l, c: [[min(v[0], c[i]), max(v[1], c[i])] for i, v in enumerate(l)], data[asset], [[9999999999, -9999999999] for _ in range(features_len)])
@@ -61,6 +78,7 @@ def data_preprocessing(params, assets, features):
 
     train_ds = CustomDataset(train_sequences, layer_features, params.encoder_input_length, params.prediction_length, shift=params.shift)
     val_ds = CustomDataset(val_sequences, layer_features, params.encoder_input_length, params.prediction_length, params.shift)
+
     train_dl = DataLoader(train_ds, batch_size=params.batch_size['training'], shuffle=True, num_workers=0, pin_memory=True, persistent_workers=False)
     val_dl = DataLoader(val_ds, batch_size=params.batch_size['validation'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
 
@@ -72,7 +90,7 @@ def data_preprocessing(params, assets, features):
         full_ds[asset_key] = CustomDataset({asset_key: asset}, layer_features, params.encoder_input_length, params.prediction_length, params.shift)
         full_dl[asset_key] = DataLoader(full_ds[asset_key], batch_size=params.batch_size['plot'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
 
-    return train_dl, val_dl, full_dl, scale_values
+    return train_dl, val_dl, full_dl, scale_values, feature_avg
 
 
 class InitializeParameters():
@@ -148,6 +166,66 @@ def main():
             'api-name': 'ETH-USD',
             'period': '60d',
             'interval': '5m', 
+        },
+        'ADA-5m': {
+            'api-name': 'ADA-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'LUNA1-5m': {
+            'api-name': 'LUNA1-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'AVAX-5m': {
+            'api-name': 'AVAX-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'DOGE-5m': {
+            'api-name': 'DOGE-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'SHIB-5m': {
+            'api-name': 'SHIB-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'MATIC-5m': {
+            'api-name': 'MATIC-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'LTC-5m': {
+            'api-name': 'LTC-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'UNI1-5m': {
+            'api-name': 'UNI1-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'LINK-5m': {
+            'api-name': 'LINK-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'DAI1-5m': {
+            'api-name': 'DAI1-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'ALGO-5m': {
+            'api-name': 'ALGO-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'BCH-5m': {
+            'api-name': 'BCH-USD',
+            'period': '60d',
+            'interval': '5m', 
         }
     }
 
@@ -181,7 +259,7 @@ def main():
     }
 
     parameters = InitializeParameters()
-    train_dl, val_dl, full_dl, scale_values = data_preprocessing(parameters, assets, features)
+    train_dl, val_dl, full_dl, scale_values, feature_avg = data_preprocessing(parameters, assets, features)
     
     # Start Training and / or Evaluation
     trainer = None
@@ -198,16 +276,16 @@ def main():
 
         for epoch in range(1000):
             print(f' --- Epoch: {epoch + 1}')
-            trainer.perform_epoch(train_dl, assets, 'train', parameters.param_adjust_lr)
+            trainer.perform_epoch(dataloader=train_dl, assets=assets, mode='train', feature_avg=feature_avg['train'], param_lr=parameters.param_adjust_lr)
             trainer.save_training(parameters.model_name)
 
             if parameters.val_set_eval_during_training:
-               trainer.perform_epoch(val_dl, assets, 'val')
+               trainer.perform_epoch(dataloader=val_dl, assets=assets, mode='val', feature_avg=feature_avg['val'])
     else:
         checkpoint = Trainer.load_checkpoint(parameters.model_name)
         trainer = Trainer.create_trainer(params=checkpoint, features=features, scale_values=scale_values)
         trainer.load_training(parameters.model_name)
-        trainer.perform_epoch(val_dl, assets, 'val')
+        trainer.perform_epoch(dataloader=val_dl, assets=assets, mode='val', feature_avg=feature_avg['val'])
 
         # Plot
         decoder_feature_list = [feature for n, feature in enumerate(features) if 'dec' in list(features.values())[n]['used-by-layer']]

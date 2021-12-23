@@ -85,8 +85,11 @@ class Trainer():
         self.features = features
         self.scale_values = scale_values
 
+        # get decoder features
+        self.feature_list = list(features.values())
+        self.decoder_features = [n for n in range(len(features)) if 'dec' in self.feature_list[n]['used-by-layer']]
 
-    def perform_epoch(self, dataloader, assets, mode, param_lr=None):
+    def perform_epoch(self, dataloader, assets, mode, feature_avg, param_lr=None):
         loss = []
         acc = {}
         prev_avg_loss = 0
@@ -123,7 +126,7 @@ class Trainer():
         print(f'{mode}_loss: {np.mean(loss)}\n')
 
         for asset in assets:
-            print(f'{mode}_acc_{asset}: {np.mean(acc[asset], 0)}\n')
+            print(f'{mode}_acc_{asset}: {np.mean(acc[asset], 0)}, {feature_avg[asset][self.decoder_features]}\n')
             
 
     def train_transformer(self, encoder_input, decoder_input, target_tensor, asset_tag):
@@ -174,11 +177,11 @@ class Trainer():
 
         return acc
 
+
     def scale_assets_to_normal(self, data, asset_tag):
         scale_values = self.scale_values
-        features = self.features
-        feature_list = list(features.values())
-        decoder_features = [n for n in range(len(features)) if 'dec' in feature_list[n]['used-by-layer']]
+        feature_list = self.feature_list
+        decoder_features = self.decoder_features
 
         # a = feature_list[idx_inner]['scaling-interval'][0]
         # b = feature_list[idx_inner]['scaling-interval'][1]
