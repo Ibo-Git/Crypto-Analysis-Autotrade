@@ -14,7 +14,7 @@ class CustomDataset(Dataset):
         
         # split entire text into sequences
         sequence_length = encoder_input_length + prediction_length
-        sequences = [data[n:n + sequence_length] for n in range(len(data))]
+        sequences = [data[n:n + sequence_length] for n in range(0, len(data) - sequence_length, sequence_length)]
 
         # create encoder decoder inputs and expected output
         self.encoder_input, self.decoder_input, self.expected_output = [], [], []

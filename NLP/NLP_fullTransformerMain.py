@@ -151,7 +151,7 @@ class InitializeParameters():
 
         # paths and save names
         self.model_name = str(self.params['vocab_size']) + '_small-trumpi-net_xD' # save name of transformer model xD
-        self.datapath = 'datasets\\trump\\originals' # path to load data, .txt files should be stored in there
+        self.datapath = 'datasets\\trump' # path to load data, .txt files should be stored in there
         self.dataset_name = 'trump' # name of folder for saving models etc.
 
 
