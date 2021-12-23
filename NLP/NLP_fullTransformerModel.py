@@ -159,14 +159,15 @@ class Trainer():
 
 
     def test_transformer(self, encoder_input, generation_length):
-        output = torch.empty(0, dtype=int)
-        decoder_input = torch.tensor([TokenIDX.SOS_IDX])
+        encoder_input = encoder_input.to(self.device)
+        output = torch.empty(0, dtype=int).to(self.device)
+        decoder_input = torch.tensor([TokenIDX.SOS_IDX]).to(self.device)
 
         for n in range(generation_length):
             output = self.model(encoder_input.unsqueeze(0), torch.cat((decoder_input, output)).unsqueeze(0))
             output = torch.argmax(output, 2).squeeze(0)
 
-        print(self.bpe_decoder(output.tolist()))
+        print(f'{self.bpe_decoder(encoder_input.tolist())[0]}|||{self.bpe_decoder(output.tolist())[0]}')
 
 
     def get_accuracy(self, output, target):

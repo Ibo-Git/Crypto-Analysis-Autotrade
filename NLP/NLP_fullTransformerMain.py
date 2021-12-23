@@ -115,9 +115,10 @@ class InitializeParameters():
     def __init__(self):
         self.split_percent = 0.8
         self.encoder_input_length = 50
-        self.prediction_length = 20
+        self.prediction_length = 50
+
         self.batch_size = {
-            'training': 64, 
+            'training': 128, 
             'validation': 256, 
         }
 
@@ -126,10 +127,10 @@ class InitializeParameters():
             # Model
             'vocab_size': 200,
             'encoder_input_length': self.encoder_input_length,
-            'n_heads': 2,
+            'n_heads': 8,
             'd_model': 512,
-            'num_encoder_layers': 1,
-            'num_decoder_layers': 1,
+            'num_encoder_layers': 6,
+            'num_decoder_layers': 6,
             'dropout': 0,
             # Optim
             'optim_name': 'Adam',
@@ -139,20 +140,20 @@ class InitializeParameters():
         }
 
         self.param_adjust_lr = {
-            'lr_decay_factor': 5,
-            'loss_decay': 0.05,
+            'lr_decay_factor': 2,
+            'loss_decay': 0.01,
             'min_lr': 0.0000035
         }
 
         self.val_set_eval_during_training = True
         self.eval_mode = False
-        self.load_model = False
+        self.load_model = True
         self.lr_overwrite_for_load = None 
 
         # paths and save names
-        self.model_name = str(self.params['vocab_size']) + '_small-trumpi-net_xD' # save name of transformer model xD
-        self.datapath = 'datasets\\trump' # path to load data, .txt files should be stored in there
-        self.dataset_name = 'trump' # name of folder for saving models etc.
+        self.model_name = str(self.params['vocab_size']) + 'law' # save name of transformer model xD
+        self.datapath = 'datasets\\law' # path to load data, .txt files should be stored in there
+        self.dataset_name = 'law' # name of folder for saving models etc.
 
 
 
