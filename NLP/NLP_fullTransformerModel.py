@@ -11,6 +11,8 @@ from nltk.translate.bleu_score import sentence_bleu
 from torch.utils import data
 from tqdm import tqdm
 
+from NLP_customDataset import TokenIDX
+
 
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, dropout, max_len=5000):
@@ -154,6 +156,17 @@ class Trainer():
         output_sequence = output_flat[-1].tolist()
 
         return loss, acc, output_sequence
+
+
+    def test_transformer(self, encoder_input, generation_length):
+        output = torch.empty(0, dtype=int)
+        decoder_input = torch.tensor([TokenIDX.SOS_IDX])
+
+        for n in range(generation_length):
+            output = self.model(encoder_input.unsqueeze(0), torch.cat((decoder_input, output)).unsqueeze(0))
+            output = torch.argmax(output, 2).squeeze(0)
+
+        print(self.bpe_decoder(output.tolist()))
 
 
     def get_accuracy(self, output, target):

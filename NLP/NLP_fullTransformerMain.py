@@ -48,8 +48,8 @@ class DataProcessing():
 
 
     def read_dataset(self, datapath):
-        if pathlib.Path(os.path.join(datapath, 'lowercase.txt')).is_file():
-             with open(os.path.join(datapath, 'lowercase.txt'), 'r', encoding="UTF-8") as file:
+        if pathlib.Path(os.path.join(self.savepath, 'lowercase.txt')).is_file():
+             with open(os.path.join(self.savepath, 'lowercase.txt'), 'r', encoding="UTF-8") as file:
                 self.text = file.read()
         else:
             current_path = pathlib.Path().absolute()
@@ -64,7 +64,7 @@ class DataProcessing():
             file_all = ''.join(file_all)
             self.text = file_all.lower()
 
-            f = open(os.path.join(datapath, "lowercase.txt"), "w", encoding="UTF-8")
+            f = open(os.path.join(self.savepath, "lowercase.txt"), "w", encoding="UTF-8")
             f.write(self.text)
             f.close()
     
@@ -73,7 +73,7 @@ class DataProcessing():
         # train bpe on file and save
         if self.state == 'save':
             yttm.BPE.train(
-                data = os.path.join(self.datapath, 'lowercase.txt'),
+                data = os.path.join(self.savepath, 'lowercase.txt'),
                 vocab_size = self.vocab_size,
                 model = self.bpe_modelpath,
                 pad_id = TokenIDX.PAD_IDX,
@@ -190,7 +190,9 @@ def main():
         trainer.load_training(modelname=param.model_name, processor=processor)
         trainer.perform_epoch(val_dl, 'val')
 
-        breakpoint = None
+        for encoder_input, decoder_input, expected_output in val_dl:
+            trainer.test_transformer(encoder_input[0], generation_length=45) # generation length must be < 49
+            breakpoint = None
 
  
 if __name__ == '__main__':
