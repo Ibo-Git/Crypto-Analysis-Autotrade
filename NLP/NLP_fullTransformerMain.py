@@ -147,7 +147,7 @@ class InitializeParameters():
 
         self.val_set_eval_during_training = True
         self.eval_mode = False
-        self.load_model = True
+        self.load_model = False
         self.lr_overwrite_for_load = None 
 
         # paths and save names
@@ -191,9 +191,9 @@ def main():
         trainer.load_training(modelname=param.model_name, processor=processor)
         trainer.perform_epoch(val_dl, 'val')
 
-        for encoder_input, decoder_input, expected_output in val_dl:
-            trainer.test_transformer(encoder_input[0], generation_length=45) # generation length must be < 49
-            breakpoint = None
+        custom_text = ['trump ist der beste präsident XD']
+        trainer.test_transformer(custom_text, generation_length=45) # generation length must be < 49
+
 
  
 if __name__ == '__main__':

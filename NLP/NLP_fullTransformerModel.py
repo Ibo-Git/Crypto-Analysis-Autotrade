@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import youtokentome as yttm
 from nltk.translate.bleu_score import sentence_bleu
 from torch.utils import data
 from tqdm import tqdm
@@ -71,7 +72,7 @@ class TransformerModel(nn.Module):
 
     
 class Trainer():
-    def __init__(self, model, optimizer, scheduler, criterion, optim_lr, optim_name, loss_name, device, bpe_decoder):
+    def __init__(self, model, optimizer, scheduler, criterion, optim_lr, optim_name, loss_name, device, bpe_encoder, bpe_decoder):
         self.model = model
         self.optimizer = optimizer
         self.scheduler = scheduler 
@@ -81,6 +82,7 @@ class Trainer():
         self.loss_name = loss_name
         self.device = device
         self.bpe_decoder = bpe_decoder
+        self.bpe_encoder = bpe_encoder
 
 
     def perform_epoch(self, dataloader, mode, param_lr=None):
@@ -159,6 +161,9 @@ class Trainer():
 
 
     def test_transformer(self, encoder_input, generation_length):
+        if not torch.is_tensor(encoder_input):
+            encoder_input = torch.tensor(self.bpe_encoder(encoder_input, output_type=yttm.OutputType.ID)).squeeze(0)
+
         encoder_input = encoder_input.to(self.device)
         output = torch.empty(0, dtype=int).to(self.device)
         decoder_input = torch.tensor([TokenIDX.SOS_IDX]).to(self.device)
@@ -247,6 +252,7 @@ class Trainer():
         optim_name = params['optim_name']
         loss_name = params['loss_name']
 
+        bpe_encoder = processor.bpe.encode
         bpe_decoder = processor.bpe.decode
 
         model = TransformerModel(
@@ -269,7 +275,17 @@ class Trainer():
         if loss_name == 'CrossEntropyLoss':
             criterion = nn.CrossEntropyLoss()
 
-        return Trainer(model=model, optimizer=optimizer, scheduler=None, criterion=criterion, optim_lr=optim_lr, optim_name=optim_name, loss_name=loss_name, device=device, bpe_decoder=bpe_decoder)
+        return Trainer(
+            model=model, 
+            optimizer=optimizer, 
+            scheduler=None, 
+            criterion=criterion, 
+            optim_lr=optim_lr, 
+            optim_name=optim_name, 
+            loss_name=loss_name, 
+            device=device, 
+            bpe_encoder=bpe_encoder, 
+            bpe_decoder=bpe_decoder)
 
    
 
