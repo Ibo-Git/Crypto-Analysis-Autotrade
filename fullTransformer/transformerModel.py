@@ -144,15 +144,15 @@ class Trainer():
             loss = self.criterion(output, target_tensor)
 
         self.scaler.scale(loss).backward()
-        self.scaler.unscale_(self.optimizer)
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0) # value of max_norm?
+        #self.scaler.unscale_(self.optimizer)
+        #torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0) # value of max_norm?
         self.scaler.step(self.optimizer)
         self.scaler.update()
 
         if self.scheduler is not None: self.scheduler.step()
         acc = self.get_accuracy(output, target_tensor, asset_tag)
         
-        return loss.detach(), acc
+        return loss.item(), acc
 
 
     def evaluate_transformer(self, encoder_input, decoder_input, target_tensor, asset_tag):
@@ -165,7 +165,7 @@ class Trainer():
 
         # determine loss and accuracy
         output = self.model(encoder_input, decoder_input)
-        loss = self.criterion(output, target_tensor).detach()
+        loss = self.criterion(output, target_tensor).item()
 
         acc = self.get_accuracy(output, target_tensor, asset_tag)
 
@@ -350,8 +350,8 @@ class Trainer():
             target = self.scale_assets_to_normal(target, asset_tag)
 
             # concatenate output and target to one single tensor
-            output_for_plot = torch.cat((output_for_plot, output.detach()))
-            target_for_plot = torch.cat((target_for_plot, target.detach()))
+            output_for_plot = torch.cat((output_for_plot, output.item()))
+            target_for_plot = torch.cat((target_for_plot, target.item()))
         
         return output_for_plot, target_for_plot, asset_tag[0]
 

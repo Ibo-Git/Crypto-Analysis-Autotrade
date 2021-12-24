@@ -11,27 +11,38 @@ from torch.utils.data import DataLoader
 
 from customDataset import CustomDataset
 from transformerModel import Trainer, TransformerModel
-
+import pickle
+import os
 
 def data_preprocessing(params, assets, features):
-    data = {}
+    overwrite_dataloaders = False
 
-    for asset_key, asset in assets.items():
-        crypto_df = yf.download(tickers=asset['api-name'], period=asset['period'], interval=asset['interval'])
-        data[asset_key] = []
+    if overwrite_dataloaders or not os.path.isfile('test.pkl'):
+        data = {}
 
-        last_row_close = 0
+        for asset_key, asset in assets.items():
+            crypto_df = yf.download(tickers=asset['api-name'], period=asset['period'], interval=asset['interval'])
+            data[asset_key] = []
+            last_row_close = 0
 
-        for index, row in crypto_df.iterrows():
-            data[asset_key] .append([
-                row['Open'], 
-                row['High'], 
-                row['Low'], 
-                row['Close'],
-                1 if last_row_close <= row['Close'] else 0
-            ])
+            for index, row in crypto_df.iterrows():
+                data[asset_key].append([
+                    row['Open'], 
+                    row['High'], 
+                    row['Low'], 
+                    row['Close'],
+                    1 if last_row_close <= row['Close'] else 0
+                ])
 
-            last_row_close = row['Close']
+                last_row_close = row['Close']
+
+        with open('test.pkl', 'wb') as file:
+            pickle.dump(data, file)
+            
+    else:
+        with open('test.pkl', 'rb') as file:
+            data = pickle.load(file)
+
 
     # create copy of data before scaling: used for calculating change in assets
     data_raw = data.copy()
@@ -146,6 +157,86 @@ def main():
             'api-name': 'BTC-USD',
             'period': '60d',
             'interval': '5m', 
+        },
+        'BNB-5m': {
+            'api-name': 'BNB-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'XRP-5m': {
+            'api-name': 'XRP-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'SOL1-5m': {
+            'api-name': 'SOL1-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'ETH-5m': {
+            'api-name': 'ETH-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'ADA-5m': {
+            'api-name': 'ADA-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'LUNA1-5m': {
+            'api-name': 'LUNA1-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'AVAX-5m': {
+            'api-name': 'AVAX-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'DOGE-5m': {
+            'api-name': 'DOGE-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'SHIB-5m': {
+            'api-name': 'SHIB-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'MATIC-5m': {
+            'api-name': 'MATIC-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'LTC-5m': {
+            'api-name': 'LTC-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'UNI1-5m': {
+            'api-name': 'UNI1-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'LINK-5m': {
+            'api-name': 'LINK-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'DAI1-5m': {
+            'api-name': 'DAI1-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'ALGO-5m': {
+            'api-name': 'ALGO-USD',
+            'period': '60d',
+            'interval': '5m', 
+        },
+        'BCH-5m': {
+            'api-name': 'BCH-USD',
+            'period': '60d',
+            'interval': '5m', 
         }
     }
 
@@ -180,7 +271,7 @@ def main():
 
     parameters = InitializeParameters()
     train_dl, val_dl, full_dl, scale_values, feature_avg = data_preprocessing(parameters, assets, features)
-    
+
     # Start Training and / or Evaluation
     trainer = None
 
