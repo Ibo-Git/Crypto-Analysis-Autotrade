@@ -95,16 +95,16 @@ def data_preprocessing(params, assets, features):
 
 class InitializeParameters():
     def __init__(self):
-        self.val_set_eval_during_training = False
+        self.val_set_eval_during_training = True
         self.eval_mode = False
         self.load_model = False
         #self.model_name = 'test-multi-asset-5m'
-        self.model_name = 'och_l-60-3-btc'
+        self.model_name = 'test-1_0'
 
         self.split_percent = 0.9
-        self.encoder_input_length = 60
-        self.prediction_length = 3
-        self.shift = 5
+        self.encoder_input_length = 24
+        self.prediction_length = 1
+        self.shift = 1
         self.lr_overwrite_for_load = None 
 
         self.batch_size = {
@@ -238,13 +238,13 @@ def main():
         'high': {
             'scaling-mode': 'min-max-scaler',
             'scaling-interval': [0, 1],
-            'used-by-layer': ['enc'] 
+            'used-by-layer': ['enc', 'dec'] 
 
         },
         'low': {
             'scaling-mode': 'min-max-scaler',
             'scaling-interval': [0, 1],
-            'used-by-layer': ['dec'] 
+            'used-by-layer': ['enc'] 
         },
         'close': {
             'scaling-mode': 'min-max-scaler',
@@ -254,7 +254,7 @@ def main():
         'test': {
             'scaling-mode': 'min-max-scaler',
             'scaling-interval': [0, 1],
-            'used-by-layer': ['enc']
+            'used-by-layer': []
         }
     }
 
