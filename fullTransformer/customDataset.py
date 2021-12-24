@@ -24,10 +24,10 @@ class CustomDataset(Dataset):
         self.sos_token = -torch.ones(len(data[asset_key][0])).unsqueeze(0)
 
         for sequence in sequences:
-            self.encoder_input.append(torch.tensor(sequence[:encoder_input_length])[:, layer_features['encoder_features']].double())
-            self.decoder_input.append(torch.tile(self.sos_token, (prediction_length, 1))[:, layer_features['decoder_features']].double())
+            self.encoder_input.append(torch.tensor(sequence[:encoder_input_length], dtype=torch.float)[:, layer_features['encoder_features']])
+            self.decoder_input.append(torch.tile(self.sos_token, (prediction_length, 1))[:, layer_features['decoder_features']].float())
             # self.decoder_input.append(torch.cat((self.sos_token, torch.tensor(sequence[encoder_input_length:sequence_length-1]))).double())
-            self.expected_output.append(torch.tensor(sequence[encoder_input_length:sequence_length])[:, layer_features['decoder_features']].double())
+            self.expected_output.append(torch.tensor(sequence[encoder_input_length:sequence_length], dtype=torch.float)[:, layer_features['decoder_features']])
 
 
     def __len__(self):

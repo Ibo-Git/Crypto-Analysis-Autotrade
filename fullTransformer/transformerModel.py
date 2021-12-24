@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.cuda.amp import autocast
 from torch.utils import data
 from tqdm import tqdm
 
@@ -53,9 +54,6 @@ class TransformerModel(nn.Module):
         self.transformer = nn.Transformer(d_model=d_model, nhead=n_heads, num_encoder_layers=num_encoder_layers, num_decoder_layers=num_decoder_layers, dim_feedforward=dim_feedforward, batch_first=True, dropout=dropout)
         self.fc_layer_flatten = nn.Linear(d_model, dec_feature_size)
 
-        self.double()
-
-
     def forward(self, src, tgt):
         # transformer masks
         tgt_mask = nn.Transformer.generate_square_subsequent_mask(nn.Transformer(), tgt.size(dim=1)).to(self.device) # sequence length
@@ -84,6 +82,7 @@ class Trainer():
         self.device = device
         self.features = features
         self.scale_values = scale_values
+        self.scaler = torch.cuda.amp.GradScaler()
 
         # get decoder features
         self.feature_list = list(features.values())
@@ -139,14 +138,21 @@ class Trainer():
 
         # backpropagation
         self.optimizer.zero_grad()
-        output = self.model(encoder_input, decoder_input)
-        loss = self.criterion(output, target_tensor)
-        loss.backward()
-        self.optimizer.step()
+
+        with autocast():
+            output = self.model(encoder_input, decoder_input)
+            loss = self.criterion(output, target_tensor)
+
+        self.scaler.scale(loss).backward()
+        self.scaler.unscale_(self.optimizer)
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0) # value of max_norm?
+        self.scaler.step(self.optimizer)
+        self.scaler.update()
+
         if self.scheduler is not None: self.scheduler.step()
         acc = self.get_accuracy(output, target_tensor, asset_tag)
         
-        return loss.item(), acc
+        return loss.detach(), acc
 
 
     def evaluate_transformer(self, encoder_input, decoder_input, target_tensor, asset_tag):
@@ -159,7 +165,8 @@ class Trainer():
 
         # determine loss and accuracy
         output = self.model(encoder_input, decoder_input)
-        loss = self.criterion(output, target_tensor).item()
+        loss = self.criterion(output, target_tensor).detach()
+
         acc = self.get_accuracy(output, target_tensor, asset_tag)
 
         return loss, acc
@@ -289,6 +296,10 @@ class Trainer():
 
         if optim_name == 'Adam':
             optimizer = optim.Adam(model.parameters(), lr=optim_lr)
+        elif optim_name == 'AdamW':
+            optimizer = optim.AdamW(model.parameters(), lr=optim_lr)
+
+
 
         if loss_name == 'MSELoss':
             criterion = nn.MSELoss()
@@ -339,8 +350,8 @@ class Trainer():
             target = self.scale_assets_to_normal(target, asset_tag)
 
             # concatenate output and target to one single tensor
-            output_for_plot = torch.cat((output_for_plot, output.to('cpu').detach()))
-            target_for_plot = torch.cat((target_for_plot, target.to('cpu').detach()))
+            output_for_plot = torch.cat((output_for_plot, output.detach()))
+            target_for_plot = torch.cat((target_for_plot, target.detach()))
         
         return output_for_plot, target_for_plot, asset_tag[0]
 
