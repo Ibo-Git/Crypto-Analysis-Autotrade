@@ -125,7 +125,9 @@ class Trainer():
         print(f'{mode}_loss: {np.mean(loss)}\n')
 
         for asset in assets:
-            print(f'{mode}_acc_{asset}: {np.mean(acc[asset], 0)}, {feature_avg[asset][self.decoder_features]}\n')
+            asset_avg_acc = np.mean(acc[asset], 0)
+            asset_feature_avg = feature_avg[asset][self.decoder_features]
+            print(f'{mode}_acc_{asset}: acc{asset_avg_acc}, avg{asset_feature_avg}, %diff{(asset_avg_acc / asset_feature_avg) * 100}\n')
             
 
     def train_transformer(self, encoder_input, decoder_input, target_tensor, asset_tag):
@@ -350,8 +352,8 @@ class Trainer():
             target = self.scale_assets_to_normal(target, asset_tag)
 
             # concatenate output and target to one single tensor
-            output_for_plot = torch.cat((output_for_plot, output.item()))
-            target_for_plot = torch.cat((target_for_plot, target.item()))
+            output_for_plot = torch.cat((output_for_plot, output.detach()))
+            target_for_plot = torch.cat((target_for_plot, target.detach()))
         
         return output_for_plot, target_for_plot, asset_tag[0]
 

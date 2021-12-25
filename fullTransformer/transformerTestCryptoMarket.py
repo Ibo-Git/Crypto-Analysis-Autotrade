@@ -107,10 +107,10 @@ def data_preprocessing(params, assets, features):
 class InitializeParameters():
     def __init__(self):
         self.val_set_eval_during_training = True
-        self.eval_mode = False
-        self.load_model = False
+        self.eval_mode = True
+        self.load_model = True
         #self.model_name = 'test-multi-asset-5m'
-        self.model_name = 'test-1_0'
+        self.model_name = 'test-1_0 copy-1_2l'
 
         self.split_percent = 0.9
         self.encoder_input_length = 24
@@ -144,7 +144,7 @@ class InitializeParameters():
         self.param_adjust_lr = {
             'lr_decay_factor': 5,
             'loss_decay': 0.05,
-            'min_lr': 0.0000035
+            'min_lr': 0.000001
         }
         
 
@@ -152,91 +152,89 @@ class InitializeParameters():
 def main():
     # possible intervals: 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo
     # period depends on interval: 'max' for intervals > 1d, '60d' for 1d < interval < 1m, and for 1m set to 7d 
+    interval = '5m'
+    period = '60d' if interval in ['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1h'] else '7d' if interval in ['1m'] else 'max'
+
     assets = {
-        'BTC-5m': {
+        f'BTC-{interval}': {
             'api-name': 'BTC-USD',
-            'period': '60d',
-            'interval': '5m', 
+            'period': period,
+            'interval': interval, 
         },
-        'BNB-5m': {
+        f'BNB-{interval}': {
             'api-name': 'BNB-USD',
-            'period': '60d',
-            'interval': '5m', 
+            'period': period,
+            'interval': interval, 
         },
-        'XRP-5m': {
+        f'XRP-{interval}': {
             'api-name': 'XRP-USD',
-            'period': '60d',
-            'interval': '5m', 
+            'period': period,
+            'interval': interval, 
         },
-        'SOL1-5m': {
+        f'SOL1-{interval}': {
             'api-name': 'SOL1-USD',
-            'period': '60d',
-            'interval': '5m', 
+            'period': period,
+            'interval': interval, 
         },
-        'ETH-5m': {
+        f'ETH-{interval}': {
             'api-name': 'ETH-USD',
-            'period': '60d',
-            'interval': '5m', 
+            'period': period,
+            'interval': interval, 
         },
-        'ADA-5m': {
+        f'ADA-{interval}': {
             'api-name': 'ADA-USD',
-            'period': '60d',
-            'interval': '5m', 
+            'period': period,
+            'interval': interval, 
         },
-        'LUNA1-5m': {
+        f'LUNA1-{interval}': {
             'api-name': 'LUNA1-USD',
-            'period': '60d',
-            'interval': '5m', 
+            'period': period,
+            'interval': interval, 
         },
-        'AVAX-5m': {
+        f'AVAX-{interval}': {
             'api-name': 'AVAX-USD',
-            'period': '60d',
-            'interval': '5m', 
+            'period': period,
+            'interval': interval, 
         },
-        'DOGE-5m': {
+        f'DOGE-{interval}': {
             'api-name': 'DOGE-USD',
-            'period': '60d',
-            'interval': '5m', 
+            'period': period,
+            'interval': interval, 
         },
-        'SHIB-5m': {
+        f'SHIB-{interval}': {
             'api-name': 'SHIB-USD',
-            'period': '60d',
-            'interval': '5m', 
+            'period': period,
+            'interval': interval, 
         },
-        'MATIC-5m': {
+        f'MATIC-{interval}': {
             'api-name': 'MATIC-USD',
-            'period': '60d',
-            'interval': '5m', 
+            'period': period,
+            'interval': interval, 
         },
-        'LTC-5m': {
+        f'LTC-{interval}': {
             'api-name': 'LTC-USD',
-            'period': '60d',
-            'interval': '5m', 
+            'period': period,
+            'interval': interval, 
         },
-        'UNI1-5m': {
+        f'UNI1-{interval}': {
             'api-name': 'UNI1-USD',
-            'period': '60d',
-            'interval': '5m', 
+            'period': period,
+            'interval': interval, 
         },
-        'LINK-5m': {
+        f'LINK-{interval}': {
             'api-name': 'LINK-USD',
-            'period': '60d',
-            'interval': '5m', 
+            'period': period,
+            'interval': interval, 
         },
-        'DAI1-5m': {
-            'api-name': 'DAI1-USD',
-            'period': '60d',
-            'interval': '5m', 
-        },
-        'ALGO-5m': {
+        f'ALGO-{interval}': {
             'api-name': 'ALGO-USD',
-            'period': '60d',
-            'interval': '5m', 
+            'period': period,
+            'interval': interval, 
         },
-        'BCH-5m': {
+        f'BCH-{interval}': {
             'api-name': 'BCH-USD',
-            'period': '60d',
-            'interval': '5m', 
+            'period': period,
+            'interval': interval, 
         }
     }
 
