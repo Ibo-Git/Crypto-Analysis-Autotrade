@@ -13,15 +13,30 @@ from customDataset import CustomDataset
 from transformerModel import Trainer, TransformerModel
 import pickle
 import os
+import pandas as pd
+
+
+def load_asset(assetname, num_intervals, interval):
+    # load data
+    filename = f'{assetname}_{interval}.csv'
+    df= pd.read_csv(
+        os.path.join('datasets', 'assets', filename), 
+        names=["Datetime", "Open", "High", "Low", "Close", "Volume", "Number of trades"]
+    )
+    # get number of intervals e.g. for 5m and num_intervals of 17280 you get 60 days of data
+    df = df.tail(num_intervals)
+    df['Datetime'] = pd.to_datetime(df['Datetime'],unit='s')
+
+    return df
+
 
 def data_preprocessing(params, assets, features):
-    overwrite_dataloaders = False
-
-    if overwrite_dataloaders or not os.path.isfile('test.pkl'):
+    if params.overwrite_saved_data or not os.path.isfile('test.pkl'):
         data = {}
 
         for asset_key, asset in assets.items():
-            crypto_df = yf.download(tickers=asset['api-name'], period=asset['period'], interval=asset['interval'])
+            #crypto_df = yf.download(tickers=asset['api-name'], period=asset['period'], interval=asset['interval'])
+            crypto_df = load_asset(asset['api-name'], num_intervals=asset['num_intervals'], interval=asset['interval'])
             data[asset_key] = []
             last_row_close = 0
 
@@ -107,8 +122,10 @@ def data_preprocessing(params, assets, features):
 class InitializeParameters():
     def __init__(self):
         self.val_set_eval_during_training = True
-        self.eval_mode = True
-        self.load_model = True
+        self.eval_mode = False
+        self.load_model = False
+        self.overwrite_saved_data = True
+
         #self.model_name = 'test-multi-asset-5m'
         self.model_name = 'test-1_0 copy-1_2l'
 
@@ -150,90 +167,87 @@ class InitializeParameters():
 
 
 def main():
-    # possible intervals: 1m, 2m, 5m, 15m, 30m, 60m, 90m, 1h, 1d, 5d, 1wk, 1mo, 3mo
-    # period depends on interval: 'max' for intervals > 1d, '60d' for 1d < interval < 1m, and for 1m set to 7d 
-    interval = '5m'
-    period = '60d' if interval in ['1m', '2m', '5m', '15m', '30m', '60m', '90m', '1h'] else '7d' if interval in ['1m'] else 'max'
-
+    interval = 5 # possible intervals: 1, 5, 15, 60, 720, 1440
+    num_intervals = 2000 # num_intervals: number of intervals as integer
     assets = {
         f'BTC-{interval}': {
-            'api-name': 'BTC-USD',
-            'period': period,
+            'api-name': 'XBTUSD',
+            'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'BNB-{interval}': {
             'api-name': 'BNB-USD',
-            'period': period,
+            'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'XRP-{interval}': {
             'api-name': 'XRP-USD',
-            'period': period,
+            'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'SOL1-{interval}': {
             'api-name': 'SOL1-USD',
-            'period': period,
+            'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'ETH-{interval}': {
             'api-name': 'ETH-USD',
-            'period': period,
+            'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'ADA-{interval}': {
             'api-name': 'ADA-USD',
-            'period': period,
+            'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'LUNA1-{interval}': {
             'api-name': 'LUNA1-USD',
-            'period': period,
+            'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'AVAX-{interval}': {
             'api-name': 'AVAX-USD',
-            'period': period,
+            'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'DOGE-{interval}': {
             'api-name': 'DOGE-USD',
-            'period': period,
+            'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'SHIB-{interval}': {
             'api-name': 'SHIB-USD',
-            'period': period,
+            'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'MATIC-{interval}': {
             'api-name': 'MATIC-USD',
-            'period': period,
+            'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'LTC-{interval}': {
             'api-name': 'LTC-USD',
-            'period': period,
+            'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'UNI1-{interval}': {
             'api-name': 'UNI1-USD',
-            'period': period,
+            'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'LINK-{interval}': {
             'api-name': 'LINK-USD',
-            'period': period,
+            'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'ALGO-{interval}': {
             'api-name': 'ALGO-USD',
-            'period': period,
+            'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'BCH-{interval}': {
             'api-name': 'BCH-USD',
-            'period': period,
+            'num_intervals': num_intervals,
             'interval': interval, 
         }
     }
