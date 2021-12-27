@@ -1,8 +1,13 @@
 import math
+import os
+import pickle
+import warnings
 from functools import reduce
 from operator import itemgetter
 
 import numpy as np
+import pandas as pd
+import pandas_ta as ta
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -11,9 +16,6 @@ from torch.utils.data import DataLoader
 
 from customDataset import CustomDataset
 from transformerModel import Trainer, TransformerModel
-import pickle
-import os
-import pandas as pd
 
 
 def load_asset(assetname, num_intervals, interval):
@@ -23,9 +25,11 @@ def load_asset(assetname, num_intervals, interval):
         os.path.join('datasets', 'assets', filename), 
         names=["Datetime", "Open", "High", "Low", "Close", "Volume", "Number of trades"]
     )
+    df.ta.rsi(close='Close', length=10, append=True)
+
     # get number of intervals e.g. for 5m and num_intervals of 17280 you get 60 days of data
     df = df.tail(num_intervals)
-    df['Datetime'] = pd.to_datetime(df['Datetime'],unit='s')
+    #df['Datetime'] = pd.to_datetime(df['Datetime'], unit='s')
 
     return df
 
@@ -38,7 +42,6 @@ def data_preprocessing(params, assets, features):
             #crypto_df = yf.download(tickers=asset['api-name'], period=asset['period'], interval=asset['interval'])
             crypto_df = load_asset(asset['api-name'], num_intervals=asset['num_intervals'], interval=asset['interval'])
             data[asset_key] = []
-            last_row_close = 0
 
             for index, row in crypto_df.iterrows():
                 data[asset_key].append([
@@ -46,10 +49,9 @@ def data_preprocessing(params, assets, features):
                     row['High'], 
                     row['Low'], 
                     row['Close'],
-                    row['Volume']
+                    row['Volume'],
+                    row['RSI_10']
                 ])
-
-                last_row_close = row['Close']
 
         with open('test.pkl', 'wb') as file:
             pickle.dump(data, file)
@@ -87,8 +89,18 @@ def data_preprocessing(params, assets, features):
     for asset in data:
         #scale_values[asset] = reduce(lambda l, c: [[min(v[0], c[i]), max(v[1], c[i])] for i, v in enumerate(l)], data[asset], [[9999999999, -9999999999] for _ in range(features_len)])
         scale_values[asset] = {
-            'min': [min(data[asset], key=itemgetter(n))[n] for n in range(features_len)], 
-            'max': [max(data[asset], key=itemgetter(n))[n] for n in range(features_len)]
+            'min': [
+                min(data[asset], key=itemgetter(n))[n] if list(features.values())[n]['scaling-mode'] == 'min-max-scaler' 
+                else list(features.values())[n]['scaling-limits'][0] if list(features.values())[n]['scaling-mode'] == 'limit-scaler'
+                else warnings.warn("Undefined scale mode!")
+                for n in range(features_len)
+            ],
+            'max': [
+                max(data[asset], key=itemgetter(n))[n] if list(features.values())[n]['scaling-mode'] == 'min-max-scaler' 
+                else list(features.values())[n]['scaling-limits'][1] if list(features.values())[n]['scaling-mode'] == 'limit-scaler'
+                else warnings.warn("Undefined scale mode!")
+                for n in range(features_len)
+            ],
         }
 
         feature_list = list(features.values())
@@ -263,6 +275,12 @@ def main():
         'volume': {
             'scaling-mode': 'min-max-scaler',
             'scaling-interval': [0, 1],
+            'used-by-layer': ['enc']
+        },
+        'rsi': {
+            'scaling-mode': 'limit-scaler',
+            'scaling-interval': [0, 1],
+            'scaling-limits': [0, 100],
             'used-by-layer': ['enc']
         }
     }
