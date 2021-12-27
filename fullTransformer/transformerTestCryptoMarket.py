@@ -46,7 +46,7 @@ def data_preprocessing(params, assets, features):
                     row['High'], 
                     row['Low'], 
                     row['Close'],
-                    1 if last_row_close <= row['Close'] else 0
+                    row['Volume']
                 ])
 
                 last_row_close = row['Close']
@@ -127,10 +127,10 @@ class InitializeParameters():
         self.overwrite_saved_data = True
 
         #self.model_name = 'test-multi-asset-5m'
-        self.model_name = 'test-1_0 copy-1_2l'
+        self.model_name = 'volumetest2'
 
         self.split_percent = 0.9
-        self.encoder_input_length = 24
+        self.encoder_input_length = 60
         self.prediction_length = 1
         self.shift = 1
         self.lr_overwrite_for_load = None 
@@ -145,14 +145,14 @@ class InitializeParameters():
         self.params = {
             # Model
             'encoder_input_length': self.encoder_input_length,
-            'n_heads': 2,
+            'n_heads': 4,
             'd_model': 512,
-            'num_encoder_layers': 1,
-            'num_decoder_layers': 1,
+            'num_encoder_layers': 4,
+            'num_decoder_layers': 4,
             'dim_feedforward': 2048, 
             'dropout': 0,
             # Optim
-            'optim_name': 'Adam',
+            'optim_name': 'AdamW',
             'optim_lr': 0.0001,
             # Loss
             'loss_name': 'MSELoss'
@@ -160,93 +160,79 @@ class InitializeParameters():
 
         self.param_adjust_lr = {
             'lr_decay_factor': 5,
-            'loss_decay': 0.05,
-            'min_lr': 0.000001
+            'loss_decay': 0.01,
+            'min_lr': 0.00001
         }
         
 
 
 def main():
-    interval = 5 # possible intervals: 1, 5, 15, 60, 720, 1440
-    num_intervals = 2000 # num_intervals: number of intervals as integer
+    interval = 15 # possible intervals: 1, 5, 15, 60, 720, 1440
+    num_intervals = 10000 # num_intervals: number of intervals as integer
+
     assets = {
         f'BTC-{interval}': {
             'api-name': 'XBTUSD',
             'num_intervals': num_intervals,
             'interval': interval, 
         },
-        f'BNB-{interval}': {
-            'api-name': 'BNB-USD',
-            'num_intervals': num_intervals,
-            'interval': interval, 
-        },
         f'XRP-{interval}': {
-            'api-name': 'XRP-USD',
+            'api-name': 'XRPUSD',
             'num_intervals': num_intervals,
             'interval': interval, 
         },
-        f'SOL1-{interval}': {
-            'api-name': 'SOL1-USD',
+        f'SOL-{interval}': {
+            'api-name': 'SOLUSD',
             'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'ETH-{interval}': {
-            'api-name': 'ETH-USD',
+            'api-name': 'ETHUSD',
             'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'ADA-{interval}': {
-            'api-name': 'ADA-USD',
+            'api-name': 'ADAUSD',
             'num_intervals': num_intervals,
             'interval': interval, 
         },
-        f'LUNA1-{interval}': {
-            'api-name': 'LUNA1-USD',
+        f'FIL-{interval}': {
+            'api-name': 'FILUSD',
             'num_intervals': num_intervals,
             'interval': interval, 
         },
-        f'AVAX-{interval}': {
-            'api-name': 'AVAX-USD',
-            'num_intervals': num_intervals,
-            'interval': interval, 
-        },
-        f'DOGE-{interval}': {
-            'api-name': 'DOGE-USD',
-            'num_intervals': num_intervals,
-            'interval': interval, 
-        },
-        f'SHIB-{interval}': {
-            'api-name': 'SHIB-USD',
+        f'DASH-{interval}': {
+            'api-name': 'DASHUSD',
             'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'MATIC-{interval}': {
-            'api-name': 'MATIC-USD',
+            'api-name': 'MATICUSD',
             'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'LTC-{interval}': {
-            'api-name': 'LTC-USD',
+            'api-name': 'LTCUSD',
             'num_intervals': num_intervals,
             'interval': interval, 
         },
-        f'UNI1-{interval}': {
-            'api-name': 'UNI1-USD',
+        f'UNI-{interval}': {
+            'api-name': 'UNIUSD',
             'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'LINK-{interval}': {
-            'api-name': 'LINK-USD',
+            'api-name': 'LINKUSD',
             'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'ALGO-{interval}': {
-            'api-name': 'ALGO-USD',
+            'api-name': 'ALGOUSD',
             'num_intervals': num_intervals,
             'interval': interval, 
         },
         f'BCH-{interval}': {
-            'api-name': 'BCH-USD',
+            'api-name': 'BCHUSD',
             'num_intervals': num_intervals,
             'interval': interval, 
         }
@@ -274,10 +260,10 @@ def main():
             'scaling-interval': [0, 1],
             'used-by-layer': ['enc'] 
         },
-        'test': {
+        'volume': {
             'scaling-mode': 'min-max-scaler',
             'scaling-interval': [0, 1],
-            'used-by-layer': []
+            'used-by-layer': ['enc']
         }
     }
 
