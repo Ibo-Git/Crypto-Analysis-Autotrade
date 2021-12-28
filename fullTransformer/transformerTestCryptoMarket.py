@@ -25,11 +25,13 @@ def load_asset(assetname, num_intervals, interval):
         os.path.join('datasets', 'assets', filename), 
         names=["Datetime", "Open", "High", "Low", "Close", "Volume", "Number of trades"]
     )
-    df.ta.rsi(close='Close', length=10, append=True)
+
+    rsi_window = 10
+    df.ta.rsi(close='Close', length=rsi_window, append=True)
+    df = df.tail(len(df) - rsi_window)
 
     # get number of intervals e.g. for 5m and num_intervals of 17280 you get 60 days of data
     df = df.tail(num_intervals)
-    #df['Datetime'] = pd.to_datetime(df['Datetime'], unit='s')
 
     return df
 
@@ -289,8 +291,6 @@ def main():
     train_dl, val_dl, full_dl, scale_values, feature_avg = data_preprocessing(parameters, assets, features)
 
     # Start Training and / or Evaluation
-    trainer = None
-
     if not parameters.eval_mode:
         # Create model
         if not parameters.load_model:
