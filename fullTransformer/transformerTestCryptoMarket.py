@@ -52,6 +52,7 @@ def data_preprocessing(params, assets, features):
                     row['Low'], 
                     row['Close'],
                     row['Volume'],
+                    row['Number of trades'],
                     row['RSI_10']
                 ])
 
@@ -141,7 +142,7 @@ class InitializeParameters():
         self.overwrite_saved_data = True
 
         #self.model_name = 'test-multi-asset-5m'
-        self.model_name = 'volumetest2'
+        self.model_name = 'volumetest-allassets2'
 
         self.split_percent = 0.9
         self.encoder_input_length = 60
@@ -159,10 +160,10 @@ class InitializeParameters():
         self.params = {
             # Model
             'encoder_input_length': self.encoder_input_length,
-            'n_heads': 4,
+            'n_heads': 2,
             'd_model': 512,
-            'num_encoder_layers': 4,
-            'num_decoder_layers': 4,
+            'num_encoder_layers': 1,
+            'num_decoder_layers': 1,
             'dim_feedforward': 2048, 
             'dropout': 0,
             # Optim
@@ -181,76 +182,18 @@ class InitializeParameters():
 
 
 def main():
-    interval = 15 # possible intervals: 1, 5, 15, 60, 720, 1440
+    interval = 60 # possible intervals: 1, 5, 15, 60, 720, 1440
     num_intervals = 10000 # num_intervals: number of intervals as integer
+    assets = {}
 
-    assets = {
-        f'BTC-{interval}': {
-            'api-name': 'XBTUSD',
-            'num_intervals': num_intervals,
-            'interval': interval, 
-        },
-        f'XRP-{interval}': {
-            'api-name': 'XRPUSD',
-            'num_intervals': num_intervals,
-            'interval': interval, 
-        },
-        f'SOL-{interval}': {
-            'api-name': 'SOLUSD',
-            'num_intervals': num_intervals,
-            'interval': interval, 
-        },
-        f'ETH-{interval}': {
-            'api-name': 'ETHUSD',
-            'num_intervals': num_intervals,
-            'interval': interval, 
-        },
-        f'ADA-{interval}': {
-            'api-name': 'ADAUSD',
-            'num_intervals': num_intervals,
-            'interval': interval, 
-        },
-        f'FIL-{interval}': {
-            'api-name': 'FILUSD',
-            'num_intervals': num_intervals,
-            'interval': interval, 
-        },
-        f'DASH-{interval}': {
-            'api-name': 'DASHUSD',
-            'num_intervals': num_intervals,
-            'interval': interval, 
-        },
-        f'MATIC-{interval}': {
-            'api-name': 'MATICUSD',
-            'num_intervals': num_intervals,
-            'interval': interval, 
-        },
-        f'LTC-{interval}': {
-            'api-name': 'LTCUSD',
-            'num_intervals': num_intervals,
-            'interval': interval, 
-        },
-        f'UNI-{interval}': {
-            'api-name': 'UNIUSD',
-            'num_intervals': num_intervals,
-            'interval': interval, 
-        },
-        f'LINK-{interval}': {
-            'api-name': 'LINKUSD',
-            'num_intervals': num_intervals,
-            'interval': interval, 
-        },
-        f'ALGO-{interval}': {
-            'api-name': 'ALGOUSD',
-            'num_intervals': num_intervals,
-            'interval': interval, 
-        },
-        f'BCH-{interval}': {
-            'api-name': 'BCHUSD',
+    asset_codes = ['ZRX', '1INCH', 'AAVE', 'GHST', 'ALGO', 'ANKR', 'ANT', 'REP', 'REPV2', 'AXS', 'BADGER', 'BAL', 'BNT', 'BAND', 'BAT', 'XBT', 'BCH', 'ADA', 'CTSI', 'LINK', 'CHZ', 'COMP', 'ATOM', 'CQT', 'CRV', 'DASH', 'MANA', 'XDG', 'DYDX', 'EWT', 'ENJ', 'MLN', 'EOS', 'ETH', 'ETC', 'FIL', 'FLOW', 'GNO', 'ICX', 'INJ', 'KAR', 'KAVA', 'KEEP', 'KSM', 'KNC', 'LSK', 'LTC', 'LPT', 'LRC', 'MKR', 'MINA', 'MIR', 'XMR', 'MOVR', 'NANO', 'OCEAN', 'OMG', 'OXT', 'OGN', 'OXY', 'PAXG', 'PERP', 'DOT', 'MATIC', 'QTUM', 'REN', 'RARI', 'RAY', 'XRP', 'SRM', 'SDN', 'SC', 'SOL', 'XLM', 'STORJ', 'SUSHI', 'SNX', 'TBTC', 'XTZ', 'GRT', 'SAND', 'TRX', 'UNI', 'WAVES', 'WBTC', 'YFI', 'ZEC']
+    
+    for asset_code in asset_codes: 
+        assets[f'{asset_code}-{interval}'] = {
+            'api-name': f'{asset_code}USD',
             'num_intervals': num_intervals,
             'interval': interval, 
         }
-    }
 
     features = {
         'open': {
@@ -278,6 +221,11 @@ def main():
             'scaling-mode': 'min-max-scaler',
             'scaling-interval': [0, 1],
             'used-by-layer': ['enc']
+        },
+        'nbr-of-trades': {
+            'scaling-mode': 'min-max-scaler',
+            'scaling-interval': [0, 1],
+            'used-by-layer': []
         },
         'rsi': {
             'scaling-mode': 'limit-scaler',
