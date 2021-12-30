@@ -18,116 +18,116 @@ from customDataset import CustomDataset
 from transformerModel import Trainer, TransformerModel
 
 
-def load_asset(assetname, num_intervals, interval):
+def load_asset(assetname, num_intervals):
     # load data
-    filename = f'{assetname}_{interval}.csv'
+    filename = f'{assetname}_1.csv'
     df= pd.read_csv(
         os.path.join('datasets', 'assets', filename), 
         names=["Datetime", "Open", "High", "Low", "Close", "Volume", "Number of trades"]
     )
-    
-    rsi_window = 10
-    df.ta.rsi(close='Close', length=rsi_window, append=True)
-    df = df.tail(len(df) - rsi_window)
 
     # get number of intervals e.g. for 5m and num_intervals of 17280 you get 60 days of data
     df = df.tail(num_intervals)
     return df
 
 
-def data_preprocessing(params, assets, features):
-    if params.overwrite_saved_data or not os.path.isfile('test.pkl'):
-        data = {}
-        data_30_new = {}
-        data_30 = {}
-        data_30_no_overlap = {}
 
+def custom_candles(dataframe, asset_interval):
+    # create list with each dataframe row in a sublist
+    data = dataframe.drop(['Datetime'], axis=1).to_numpy().tolist()
+
+    # concatenate 1 minutes to length of asset_interval and separate overlapping intervals
+    data_separated_by_interval = [[data[i + n:i + n + asset_interval] for n in range(0, len(data) - asset_interval, asset_interval)] for i in range(asset_interval)]
+
+    # combine the 1 minute candles for each feature to one candle of asset_interval length
+    for num_interval, interval in enumerate(data_separated_by_interval):
+        for num_candle, candles in enumerate(interval):
+            candles = list(zip(*candles))
+            data_separated_by_interval[num_interval][num_candle] = [
+                candles[0][0], # open
+                max(candles[1]), # high
+                min(candles[2]), # low
+                candles[3][-1], # close
+                sum(candles[4]), # volume
+                sum(candles[5]) # number of trades
+            ]
+
+    # add additional features e.g. RSI
+    rsi_window = 10
+
+    for num_interval, interval in enumerate(data_separated_by_interval):
+        # define temporary dataframe to determine additional features using pandas_ta
+        df_temp = pd.DataFrame(interval, columns=["Open", "High", "Low", "Close", "Volume", "Number of trades"])
+        df_temp.ta.rsi(close='Close', length=rsi_window, append=True)
+        df_temp = df_temp.tail(len(df_temp) - rsi_window) # remove NaN entries 
+        data_temp = [] # temporary list to convert dataframe to list
+
+        for _, row in df_temp.iterrows():
+            # add more features if needed
+            data_temp.append([
+                row['Open'], 
+                row['High'], 
+                row['Low'], 
+                row['Close'],
+                row['Volume'],
+                row['Number of trades'],
+                row['RSI_10'],
+                1 if (row['High'] / row['Open']) - 1 >= 0.006 else 0,
+                1 if (row['High'] / row['Open']) - 1 <  0.006 else 0,
+            ])
+        
+        data_separated_by_interval[num_interval] = data_temp
+
+    return data_separated_by_interval
+
+
+def data_preprocessing(params, assets, features):
+    data = {}
+    # load each asset using custom candles
+    if params.overwrite_saved_data or not os.path.isfile('data.pkl'):
         for asset_key, asset in assets.items():
             #crypto_df = yf.download(tickers=asset['api-name'], period=asset['period'], interval=asset['interval'])
-            crypto_df = load_asset(asset['api-name'], num_intervals=asset['num_intervals'], interval=asset['interval'])
-            data[asset_key] = []
+            crypto_df = load_asset(asset['api-name'], num_intervals=asset['num_intervals'])
+            data[asset_key] = custom_candles(crypto_df, params.asset_interval)
 
-            for index, row in crypto_df.iterrows():
-                data[asset_key].append([
-                    row['Open'], 
-                    row['High'], 
-                    row['Low'], 
-                    row['Close'],
-                    row['Volume'],
-                    row['Number of trades']
-                ])
-
-            data_30[asset_key] = [data[asset_key][n:n + 30] for n in range(len(data[asset_key]))]
-            data_30_new[asset_key] = []
-            for interval in data_30[asset_key]:
-                interval = list(zip(*interval))
-                data_30_new[asset_key].append([
-                    interval[0][0], 
-                    max(interval[1]), 
-                    min(interval[2]), 
-                    interval[3][-1], 
-                    sum(interval[4]), 
-                    sum(interval[5])
-                ])
-
-            data_30_no_overlap[asset_key] = []
-            for n in range(30):
-                data_30_no_overlap[asset_key].append(data_30_new[asset_key][n::30])
-
-            for n, data_overlap in enumerate(data_30_no_overlap[asset_key]):
-                df_temp = pd.DataFrame(data_overlap, columns=["Open", "High", "Low", "Close", "Volume", "Number of trades"])
-                rsi_window = 10
-                df_temp.ta.rsi(close='Close', length=rsi_window, append=True)
-                df_temp = df_temp.tail(len(df_temp) - rsi_window)
-
-                data_temp = []
-                for index, row in df_temp.iterrows():
-                    data_temp.append([
-                        row['Open'], 
-                        row['High'], 
-                        row['Low'], 
-                        row['Close'],
-                        row['Volume'],
-                        row['Number of trades'],
-                        row['RSI_10']
-                    ])
-                
-                data_30_no_overlap[asset_key][n] = data_temp
-
-        with open('test.pkl', 'wb') as file:
+        with open('data.pkl', 'wb') as file:
             pickle.dump(data, file)
             
     else:
-        with open('test.pkl', 'rb') as file:
+        with open('data.pkl', 'rb') as file:
             data = pickle.load(file)
 
 
-    # create copy of data before scaling: used for calculating change in assets
-    data_raw = data.copy()
-    train_sequences_raw = {}
-    val_sequences_raw = {}
-    feature_avg_train = {}
-    feature_avg_val = {}
-
-    for asset in data:
-        train_sequences_raw[asset] = data_raw[asset][0:math.floor(len(data_raw[asset]) * params.split_percent)]
-        val_sequences_raw[asset] = data_raw[asset][math.floor(len(data_raw[asset]) * params.split_percent):]
-        feature_avg_train[asset] = np.mean(np.abs(np.diff(list(zip(*train_sequences_raw[asset])))), 1)
-        feature_avg_val[asset] = np.mean(np.abs(np.diff(list(zip(*val_sequences_raw[asset])))), 1)
-
-    feature_avg = {
-        'train': feature_avg_train, 
-        'val': feature_avg_val
-    }
-
-
-    # scaling
-    scale_values = {}
+    # split into training and validation sequences
     train_sequences = {}
     val_sequences = {}
+
+    for asset_key, asset in data.items():
+        train_sequences[asset_key]  = []
+        val_sequences[asset_key]  = []
+        interval_avg_train = []
+        interval_avg_val = []
+
+        for num_interval, interval in enumerate(asset):
+            train_sequences[asset_key].append(interval[0:math.floor(len(interval) * params.split_percent)])
+            val_sequences[asset_key].append(interval[math.floor(len(interval) * params.split_percent):])
+
+            # determine average change for each interval
+            interval_avg_train.append(np.mean(np.abs(np.diff(list(zip(*train_sequences[asset_key][num_interval])))), 1))
+            interval_avg_val.append(np.mean(np.abs(np.diff(list(zip(*val_sequences[asset_key][num_interval])))), 1))
+
+        # average the avg change over all intervals
+        feature_avg = {
+            'train': {asset_key: np.mean(list(zip(*interval_avg_train)), 1)},
+            'val': {asset_key: np.mean(list(zip(*interval_avg_val)), 1)}
+        }
+
+    # scaling training and validation sequences according to their scaling-mode
+    scale_values = {}
     features_len = len(features.values())
 
     for asset in data:
+        # determine min and max values 
         scale_values[asset] = {
             'min': [
                 min(data[asset], key=itemgetter(n))[n] if list(features.values())[n]['scaling-mode'] == 'min-max-scaler' 
@@ -143,22 +143,22 @@ def data_preprocessing(params, assets, features):
             ],
         }
 
+        # scale training and val sequences
         feature_list = list(features.values())
-        data[asset] = [[[((feature_list[idx_inner]['scaling-interval'][1] - feature_list[idx_inner]['scaling-interval'][0]) * (feature - scale_values[asset]['min'][idx_inner]) / (scale_values[asset]['max'][idx_inner] - scale_values[asset]['min'][idx_inner]) + feature_list[idx_inner]['scaling-interval'][0]) 
-            for idx_inner, feature in enumerate(features)] for features in asset_overlap] for asset_overlap in data_30_no_overlap[asset]]
+        train_sequences[asset] = [[[((feature_list[idx_inner]['scaling-interval'][1] - feature_list[idx_inner]['scaling-interval'][0]) * (feature - scale_values[asset]['min'][idx_inner]) / (scale_values[asset]['max'][idx_inner] - scale_values[asset]['min'][idx_inner]) + feature_list[idx_inner]['scaling-interval'][0]) 
+            for idx_inner, feature in enumerate(features)] for features in interval] for interval in train_sequences[asset]]
+        val_sequences[asset] = [[[((feature_list[idx_inner]['scaling-interval'][1] - feature_list[idx_inner]['scaling-interval'][0]) * (feature - scale_values[asset]['min'][idx_inner]) / (scale_values[asset]['max'][idx_inner] - scale_values[asset]['min'][idx_inner]) + feature_list[idx_inner]['scaling-interval'][0]) 
+            for idx_inner, feature in enumerate(features)] for features in interval] for interval in val_sequences[asset]]
 
-        train_sequences[asset] = data_30_no_overlap[asset][0:math.floor(len(data_30_no_overlap[asset]) * params.split_percent)]
-        val_sequences[asset] = data_30_no_overlap[asset][math.floor(len(data_30_no_overlap[asset]) * params.split_percent):]
-
+    # get features for encoder and decoder layer
     layer_features = {
         'encoder_features': [n for n in range(len(features)) if 'enc' in list(features.values())[n]['used-by-layer']],
         'decoder_features': [n for n in range(len(features)) if 'dec' in list(features.values())[n]['used-by-layer']]
     }
 
-    
+    # create Dataloader
     train_ds = CustomDataset(train_sequences, layer_features, params.encoder_input_length, params.prediction_length, shift=params.shift)
     val_ds = CustomDataset(val_sequences, layer_features, params.encoder_input_length, params.prediction_length, params.shift)
-
     train_dl = DataLoader(train_ds, batch_size=params.batch_size['training'], shuffle=True, num_workers=0, pin_memory=True, persistent_workers=False)
     val_dl = DataLoader(val_ds, batch_size=params.batch_size['validation'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
 
@@ -183,6 +183,7 @@ class InitializeParameters():
         #self.model_name = 'test-multi-asset-5m'
         self.model_name = 'volumetest-allassets2'
 
+        self.asset_interval = 60
         self.split_percent = 0.9
         self.encoder_input_length = 60
         self.prediction_length = 1
@@ -221,17 +222,16 @@ class InitializeParameters():
 
 
 def main():
-    interval = 60 # possible intervals: 1, 5, 15, 60, 720, 1440
+    parameters = InitializeParameters()
     num_intervals = 10000 # num_intervals: number of intervals as integer
     assets = {}
 
     #asset_codes = ['ZRX', '1INCH', 'AAVE', 'GHST', 'ALGO', 'ANKR', 'ANT', 'REP', 'REPV2', 'AXS', 'BADGER', 'BAL', 'BNT', 'BAND', 'BAT', 'XBT', 'BCH', 'ADA', 'CTSI', 'LINK', 'CHZ', 'COMP', 'ATOM', 'CQT', 'CRV', 'DASH', 'MANA', 'XDG', 'DYDX', 'EWT', 'ENJ', 'MLN', 'EOS', 'ETH', 'ETC', 'FIL', 'FLOW', 'GNO', 'ICX', 'INJ', 'KAR', 'KAVA', 'KEEP', 'KSM', 'KNC', 'LSK', 'LTC', 'LPT', 'LRC', 'MKR', 'MINA', 'MIR', 'XMR', 'MOVR', 'NANO', 'OCEAN', 'OMG', 'OXT', 'OGN', 'OXY', 'PAXG', 'PERP', 'DOT', 'MATIC', 'QTUM', 'REN', 'RARI', 'RAY', 'XRP', 'SRM', 'SDN', 'SC', 'SOL', 'XLM', 'STORJ', 'SUSHI', 'SNX', 'TBTC', 'XTZ', 'GRT', 'SAND', 'TRX', 'UNI', 'WAVES', 'WBTC', 'YFI', 'ZEC']
     asset_codes = ['XBT']
     for asset_code in asset_codes: 
-        assets[f'{asset_code}-{interval}'] = {
+        assets[f'{asset_code}-{parameters.asset_interval}'] = {
             'api-name': f'{asset_code}USD',
-            'num_intervals': num_intervals,
-            'interval': interval, 
+            'num_intervals': num_intervals
         }
 
     features = {
@@ -271,10 +271,19 @@ def main():
             'scaling-interval': [0, 1],
             'scaling-limits': [0, 100],
             'used-by-layer': ['enc']
+        },
+        'buy-yes': {
+            'scaling-mode': 'min-max-scaler',
+            'scaling-interval': [0, 1],
+            'used-by-layer': ['dec']
+        },
+        'buy-no': {
+            'scaling-mode': 'min-max-scaler',
+            'scaling-interval': [0, 1],
+            'used-by-layer': ['dec']
         }
     }
 
-    parameters = InitializeParameters()
     train_dl, val_dl, full_dl, scale_values, feature_avg = data_preprocessing(parameters, assets, features)
 
     # Start Training and / or Evaluation
