@@ -25,20 +25,22 @@ def load_asset(assetname, num_intervals, interval):
         os.path.join('datasets', 'assets', filename), 
         names=["Datetime", "Open", "High", "Low", "Close", "Volume", "Number of trades"]
     )
-
+    
     rsi_window = 10
     df.ta.rsi(close='Close', length=rsi_window, append=True)
     df = df.tail(len(df) - rsi_window)
 
     # get number of intervals e.g. for 5m and num_intervals of 17280 you get 60 days of data
     df = df.tail(num_intervals)
-
     return df
 
 
 def data_preprocessing(params, assets, features):
     if params.overwrite_saved_data or not os.path.isfile('test.pkl'):
         data = {}
+        data_30_new = {}
+        data_30 = {}
+        data_30_no_overlap = {}
 
         for asset_key, asset in assets.items():
             #crypto_df = yf.download(tickers=asset['api-name'], period=asset['period'], interval=asset['interval'])
@@ -52,9 +54,45 @@ def data_preprocessing(params, assets, features):
                     row['Low'], 
                     row['Close'],
                     row['Volume'],
-                    row['Number of trades'],
-                    row['RSI_10']
+                    row['Number of trades']
                 ])
+
+            data_30[asset_key] = [data[asset_key][n:n + 30] for n in range(len(data[asset_key]))]
+            data_30_new[asset_key] = []
+            for interval in data_30[asset_key]:
+                interval = list(zip(*interval))
+                data_30_new[asset_key].append([
+                    interval[0][0], 
+                    max(interval[1]), 
+                    min(interval[2]), 
+                    interval[3][-1], 
+                    sum(interval[4]), 
+                    sum(interval[5])
+                ])
+
+            data_30_no_overlap[asset_key] = []
+            for n in range(30):
+                data_30_no_overlap[asset_key].append(data_30_new[asset_key][n::30])
+
+            for n, data_overlap in enumerate(data_30_no_overlap[asset_key]):
+                df_temp = pd.DataFrame(data_overlap, columns=["Open", "High", "Low", "Close", "Volume", "Number of trades"])
+                rsi_window = 10
+                df_temp.ta.rsi(close='Close', length=rsi_window, append=True)
+                df_temp = df_temp.tail(len(df_temp) - rsi_window)
+
+                data_temp = []
+                for index, row in df_temp.iterrows():
+                    data_temp.append([
+                        row['Open'], 
+                        row['High'], 
+                        row['Low'], 
+                        row['Close'],
+                        row['Volume'],
+                        row['Number of trades'],
+                        row['RSI_10']
+                    ])
+                
+                data_30_no_overlap[asset_key][n] = data_temp
 
         with open('test.pkl', 'wb') as file:
             pickle.dump(data, file)
@@ -90,7 +128,6 @@ def data_preprocessing(params, assets, features):
     features_len = len(features.values())
 
     for asset in data:
-        #scale_values[asset] = reduce(lambda l, c: [[min(v[0], c[i]), max(v[1], c[i])] for i, v in enumerate(l)], data[asset], [[9999999999, -9999999999] for _ in range(features_len)])
         scale_values[asset] = {
             'min': [
                 min(data[asset], key=itemgetter(n))[n] if list(features.values())[n]['scaling-mode'] == 'min-max-scaler' 
@@ -107,16 +144,18 @@ def data_preprocessing(params, assets, features):
         }
 
         feature_list = list(features.values())
-        data[asset] = [[((feature_list[idx_inner]['scaling-interval'][1] - feature_list[idx_inner]['scaling-interval'][0]) * (feature - scale_values[asset]['min'][idx_inner]) / (scale_values[asset]['max'][idx_inner] - scale_values[asset]['min'][idx_inner]) + feature_list[idx_inner]['scaling-interval'][0]) for idx_inner, feature in enumerate(features)] for features in data[asset]]
-        train_sequences[asset] = data[asset][0:math.floor(len(data[asset]) * params.split_percent)]
-        val_sequences[asset] = data[asset][math.floor(len(data[asset]) * params.split_percent):]
+        data[asset] = [[[((feature_list[idx_inner]['scaling-interval'][1] - feature_list[idx_inner]['scaling-interval'][0]) * (feature - scale_values[asset]['min'][idx_inner]) / (scale_values[asset]['max'][idx_inner] - scale_values[asset]['min'][idx_inner]) + feature_list[idx_inner]['scaling-interval'][0]) 
+            for idx_inner, feature in enumerate(features)] for features in asset_overlap] for asset_overlap in data_30_no_overlap[asset]]
+
+        train_sequences[asset] = data_30_no_overlap[asset][0:math.floor(len(data_30_no_overlap[asset]) * params.split_percent)]
+        val_sequences[asset] = data_30_no_overlap[asset][math.floor(len(data_30_no_overlap[asset]) * params.split_percent):]
 
     layer_features = {
         'encoder_features': [n for n in range(len(features)) if 'enc' in list(features.values())[n]['used-by-layer']],
         'decoder_features': [n for n in range(len(features)) if 'dec' in list(features.values())[n]['used-by-layer']]
     }
 
-
+    
     train_ds = CustomDataset(train_sequences, layer_features, params.encoder_input_length, params.prediction_length, shift=params.shift)
     val_ds = CustomDataset(val_sequences, layer_features, params.encoder_input_length, params.prediction_length, params.shift)
 
@@ -186,8 +225,8 @@ def main():
     num_intervals = 10000 # num_intervals: number of intervals as integer
     assets = {}
 
-    asset_codes = ['ZRX', '1INCH', 'AAVE', 'GHST', 'ALGO', 'ANKR', 'ANT', 'REP', 'REPV2', 'AXS', 'BADGER', 'BAL', 'BNT', 'BAND', 'BAT', 'XBT', 'BCH', 'ADA', 'CTSI', 'LINK', 'CHZ', 'COMP', 'ATOM', 'CQT', 'CRV', 'DASH', 'MANA', 'XDG', 'DYDX', 'EWT', 'ENJ', 'MLN', 'EOS', 'ETH', 'ETC', 'FIL', 'FLOW', 'GNO', 'ICX', 'INJ', 'KAR', 'KAVA', 'KEEP', 'KSM', 'KNC', 'LSK', 'LTC', 'LPT', 'LRC', 'MKR', 'MINA', 'MIR', 'XMR', 'MOVR', 'NANO', 'OCEAN', 'OMG', 'OXT', 'OGN', 'OXY', 'PAXG', 'PERP', 'DOT', 'MATIC', 'QTUM', 'REN', 'RARI', 'RAY', 'XRP', 'SRM', 'SDN', 'SC', 'SOL', 'XLM', 'STORJ', 'SUSHI', 'SNX', 'TBTC', 'XTZ', 'GRT', 'SAND', 'TRX', 'UNI', 'WAVES', 'WBTC', 'YFI', 'ZEC']
-    
+    #asset_codes = ['ZRX', '1INCH', 'AAVE', 'GHST', 'ALGO', 'ANKR', 'ANT', 'REP', 'REPV2', 'AXS', 'BADGER', 'BAL', 'BNT', 'BAND', 'BAT', 'XBT', 'BCH', 'ADA', 'CTSI', 'LINK', 'CHZ', 'COMP', 'ATOM', 'CQT', 'CRV', 'DASH', 'MANA', 'XDG', 'DYDX', 'EWT', 'ENJ', 'MLN', 'EOS', 'ETH', 'ETC', 'FIL', 'FLOW', 'GNO', 'ICX', 'INJ', 'KAR', 'KAVA', 'KEEP', 'KSM', 'KNC', 'LSK', 'LTC', 'LPT', 'LRC', 'MKR', 'MINA', 'MIR', 'XMR', 'MOVR', 'NANO', 'OCEAN', 'OMG', 'OXT', 'OGN', 'OXY', 'PAXG', 'PERP', 'DOT', 'MATIC', 'QTUM', 'REN', 'RARI', 'RAY', 'XRP', 'SRM', 'SDN', 'SC', 'SOL', 'XLM', 'STORJ', 'SUSHI', 'SNX', 'TBTC', 'XTZ', 'GRT', 'SAND', 'TRX', 'UNI', 'WAVES', 'WBTC', 'YFI', 'ZEC']
+    asset_codes = ['XBT']
     for asset_code in asset_codes: 
         assets[f'{asset_code}-{interval}'] = {
             'api-name': f'{asset_code}USD',

@@ -5,7 +5,7 @@ from torch.utils.data import Dataset
 
 
 class CustomDataset(Dataset):
-    def __init__(self, data, layer_features, encoder_input_length=50, prediction_length=1, shift=5):
+    def __init__(self, data, layer_features, encoder_input_length=50, prediction_length=1, shift=1):
         
         # split entire history into sequences
         sequence_length = encoder_input_length + prediction_length
@@ -13,9 +13,10 @@ class CustomDataset(Dataset):
         sequences = []
 
         for asset_key, asset in data.items():
-            temp_sequence_length = len(sequences)
-            sequences = sequences + [asset[n:n + sequence_length] for n in range(0, len(asset) - sequence_length, shift)]
-            asset_tag = asset_tag + ([asset_key] * (len(sequences) - temp_sequence_length))
+            for asset_overlap in asset:
+                temp_sequence_length = len(sequences)
+                sequences = sequences + [asset_overlap[n:n + sequence_length] for n in range(0, len(asset_overlap) - sequence_length, shift)]
+                asset_tag = asset_tag + ([asset_key] * (len(sequences) - temp_sequence_length))
 
         self.asset_tag = asset_tag
 
