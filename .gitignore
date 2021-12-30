@@ -3,3 +3,4 @@ __pycache__/
 savedFiles/
 datasets/
 test.pkl
+data.pkl
