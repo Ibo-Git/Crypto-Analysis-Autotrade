@@ -89,7 +89,9 @@ def data_preprocessing(params, assets, features):
                         row['Close'],
                         row['Volume'],
                         row['Number of trades'],
-                        row['RSI_10']
+                        row['RSI_10'],
+                        1 if (row['High'] / row['Open']) - 1 >= 0.006 else 0,
+                        1 if (row['High'] / row['Open']) - 1 <  0.006 else 0,
                     ])
                 
                 data_30_no_overlap[asset_key][n] = data_temp
@@ -271,6 +273,16 @@ def main():
             'scaling-interval': [0, 1],
             'scaling-limits': [0, 100],
             'used-by-layer': ['enc']
+        },
+        'buy-yes': {
+            'scaling-mode': 'min-max-scaler',
+            'scaling-interval': [0, 1],
+            'used-by-layer': ['dec']
+        },
+        'buy-no': {
+            'scaling-mode': 'min-max-scaler',
+            'scaling-interval': [0, 1],
+            'used-by-layer': ['dec']
         }
     }
 
