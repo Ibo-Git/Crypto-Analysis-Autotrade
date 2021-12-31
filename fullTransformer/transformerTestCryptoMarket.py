@@ -125,21 +125,29 @@ def data_preprocessing(params, assets, features):
     # scaling training and validation sequences according to their scaling-mode
     scale_values = {}
     features_len = len(features.values())
-
+    
+    # determine min and max values 
     for asset in data:
-        # determine min and max values 
         scale_values[asset] = {
             'min': [
-                min(data[asset], key=itemgetter(n))[n] if list(features.values())[n]['scaling-mode'] == 'min-max-scaler' 
+                min([[min(data[asset][i], key=itemgetter(n))[n] if list(features.values())[n]['scaling-mode'] == 'min-max-scaler' 
                 else list(features.values())[n]['scaling-limits'][0] if list(features.values())[n]['scaling-mode'] == 'limit-scaler'
                 else warnings.warn("Undefined scale mode!")
-                for n in range(features_len)
+                for n in range(features_len)] 
+                for i in range(len(data[asset]))], key=itemgetter(k))[k] if list(features.values())[k]['scaling-mode'] == 'min-max-scaler'
+                else list(features.values())[k]['scaling-limits'][0] if list(features.values())[k]['scaling-mode'] == 'limit-scaler'
+                else warnings.warn("Undefined scale mode!")
+                for k in range(features_len)
             ],
             'max': [
-                max(data[asset], key=itemgetter(n))[n] if list(features.values())[n]['scaling-mode'] == 'min-max-scaler' 
+                max([[max(data[asset][i], key=itemgetter(n))[n] if list(features.values())[n]['scaling-mode'] == 'min-max-scaler' 
                 else list(features.values())[n]['scaling-limits'][1] if list(features.values())[n]['scaling-mode'] == 'limit-scaler'
                 else warnings.warn("Undefined scale mode!")
-                for n in range(features_len)
+                for n in range(features_len)] 
+                for i in range(len(data[asset]))], key=itemgetter(k))[k] if list(features.values())[k]['scaling-mode'] == 'min-max-scaler'
+                else list(features.values())[k]['scaling-limits'][1] if list(features.values())[k]['scaling-mode'] == 'limit-scaler'
+                else warnings.warn("Undefined scale mode!")
+                for k in range(features_len)
             ],
         }
 
@@ -166,9 +174,9 @@ def data_preprocessing(params, assets, features):
     full_ds = {}
     full_dl = {}
 
-    for asset_key, asset in data.items():
-        full_ds[asset_key] = CustomDataset({asset_key: asset}, layer_features, params.encoder_input_length, params.prediction_length, params.shift)
-        full_dl[asset_key] = DataLoader(full_ds[asset_key], batch_size=params.batch_size['plot'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
+    # for asset_key, asset in data.items():
+    #     full_ds[asset_key] = CustomDataset({asset_key: asset}, layer_features, params.encoder_input_length, params.prediction_length, params.shift)
+    #     full_dl[asset_key] = DataLoader(full_ds[asset_key], batch_size=params.batch_size['plot'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
 
     return train_dl, val_dl, full_dl, scale_values, feature_avg
 
@@ -226,8 +234,8 @@ def main():
     num_intervals = 10000 # num_intervals: number of intervals as integer
     assets = {}
 
-    asset_codes = ['ZRX', '1INCH', 'AAVE', 'GHST', 'ALGO', 'ANKR', 'ANT', 'REP', 'REPV2', 'AXS', 'BADGER', 'BAL', 'BNT', 'BAND', 'BAT', 'XBT', 'BCH', 'ADA', 'CTSI', 'LINK', 'CHZ', 'COMP', 'ATOM', 'CQT', 'CRV', 'DASH', 'MANA', 'XDG', 'DYDX', 'EWT', 'ENJ', 'MLN', 'EOS', 'ETH', 'ETC', 'FIL', 'FLOW', 'GNO', 'ICX', 'INJ', 'KAR', 'KAVA', 'KEEP', 'KSM', 'KNC', 'LSK', 'LTC', 'LPT', 'LRC', 'MKR', 'MINA', 'MIR', 'XMR', 'MOVR', 'NANO', 'OCEAN', 'OMG', 'OXT', 'OGN', 'OXY', 'PAXG', 'PERP', 'DOT', 'MATIC', 'QTUM', 'REN', 'RARI', 'RAY', 'XRP', 'SRM', 'SDN', 'SC', 'SOL', 'XLM', 'STORJ', 'SUSHI', 'SNX', 'TBTC', 'XTZ', 'GRT', 'SAND', 'TRX', 'UNI', 'WAVES', 'WBTC', 'YFI', 'ZEC']
-    #asset_codes = ['XBT']
+    #asset_codes = ['ZRX', '1INCH', 'AAVE', 'GHST', 'ALGO', 'ANKR', 'ANT', 'REP', 'REPV2', 'AXS', 'BADGER', 'BAL', 'BNT', 'BAND', 'BAT', 'XBT', 'BCH', 'ADA', 'CTSI', 'LINK', 'CHZ', 'COMP', 'ATOM', 'CQT', 'CRV', 'DASH', 'MANA', 'XDG', 'DYDX', 'EWT', 'ENJ', 'MLN', 'EOS', 'ETH', 'ETC', 'FIL', 'FLOW', 'GNO', 'ICX', 'INJ', 'KAR', 'KAVA', 'KEEP', 'KSM', 'KNC', 'LSK', 'LTC', 'LPT', 'LRC', 'MKR', 'MINA', 'MIR', 'XMR', 'MOVR', 'NANO', 'OCEAN', 'OMG', 'OXT', 'OGN', 'OXY', 'PAXG', 'PERP', 'DOT', 'MATIC', 'QTUM', 'REN', 'RARI', 'RAY', 'XRP', 'SRM', 'SDN', 'SC', 'SOL', 'XLM', 'STORJ', 'SUSHI', 'SNX', 'TBTC', 'XTZ', 'GRT', 'SAND', 'TRX', 'UNI', 'WAVES', 'WBTC', 'YFI', 'ZEC']
+    asset_codes = ['XBT', 'ETH']
     for asset_code in asset_codes: 
         assets[f'{asset_code}-{parameters.asset_interval}'] = {
             'api-name': f'{asset_code}USD',
