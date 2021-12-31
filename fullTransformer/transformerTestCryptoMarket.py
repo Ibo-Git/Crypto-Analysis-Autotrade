@@ -31,7 +31,6 @@ def load_asset(assetname, num_intervals):
     return df
 
 
-
 def custom_candles(dataframe, asset_interval):
     # create list with each dataframe row in a sublist
     data = dataframe.drop(['Datetime'], axis=1).to_numpy().tolist()
@@ -83,6 +82,7 @@ def custom_candles(dataframe, asset_interval):
 
 def data_preprocessing(params, assets, features):
     data = {}
+
     # load each asset using custom candles
     if params.overwrite_saved_data or not os.path.isfile('data.pkl'):
         for asset_key, asset in assets.items():
@@ -96,7 +96,6 @@ def data_preprocessing(params, assets, features):
     else:
         with open('data.pkl', 'rb') as file:
             data = pickle.load(file)
-
 
     # split into training and validation sequences
     train_sequences = {}
@@ -123,45 +122,45 @@ def data_preprocessing(params, assets, features):
         }
 
     # scaling training and validation sequences according to their scaling-mode
-    scale_values = {}
     features_len = len(features.values())
-    
-    # determine min and max values 
-    for asset in data:
-        scale_values[asset] = {
-            'min': [
-                min([[min(data[asset][i], key=itemgetter(n))[n] if list(features.values())[n]['scaling-mode'] == 'min-max-scaler' 
-                else list(features.values())[n]['scaling-limits'][0] if list(features.values())[n]['scaling-mode'] == 'limit-scaler'
-                else warnings.warn("Undefined scale mode!")
-                for n in range(features_len)] 
-                for i in range(len(data[asset]))], key=itemgetter(k))[k] if list(features.values())[k]['scaling-mode'] == 'min-max-scaler'
-                else list(features.values())[k]['scaling-limits'][0] if list(features.values())[k]['scaling-mode'] == 'limit-scaler'
-                else warnings.warn("Undefined scale mode!")
-                for k in range(features_len)
-            ],
-            'max': [
-                max([[max(data[asset][i], key=itemgetter(n))[n] if list(features.values())[n]['scaling-mode'] == 'min-max-scaler' 
-                else list(features.values())[n]['scaling-limits'][1] if list(features.values())[n]['scaling-mode'] == 'limit-scaler'
-                else warnings.warn("Undefined scale mode!")
-                for n in range(features_len)] 
-                for i in range(len(data[asset]))], key=itemgetter(k))[k] if list(features.values())[k]['scaling-mode'] == 'min-max-scaler'
-                else list(features.values())[k]['scaling-limits'][1] if list(features.values())[k]['scaling-mode'] == 'limit-scaler'
-                else warnings.warn("Undefined scale mode!")
-                for k in range(features_len)
-            ],
-        }
+    feature_list = list(features.values())
+    separated_features = {}
+    scale_values = {}
 
-        # scale training and val sequences
-        feature_list = list(features.values())
-        train_sequences[asset] = [[[((feature_list[idx_inner]['scaling-interval'][1] - feature_list[idx_inner]['scaling-interval'][0]) * (feature - scale_values[asset]['min'][idx_inner]) / (scale_values[asset]['max'][idx_inner] - scale_values[asset]['min'][idx_inner]) + feature_list[idx_inner]['scaling-interval'][0]) 
-            for idx_inner, feature in enumerate(features)] for features in interval] for interval in train_sequences[asset]]
-        val_sequences[asset] = [[[((feature_list[idx_inner]['scaling-interval'][1] - feature_list[idx_inner]['scaling-interval'][0]) * (feature - scale_values[asset]['min'][idx_inner]) / (scale_values[asset]['max'][idx_inner] - scale_values[asset]['min'][idx_inner]) + feature_list[idx_inner]['scaling-interval'][0]) 
-            for idx_inner, feature in enumerate(features)] for features in interval] for interval in val_sequences[asset]]
+    for asset in data:
+        # separate all features using zip and concatenate all tuples using reduce
+        separated_features[asset] = [reduce(lambda x,y: x+y, list(zip(*[list(zip(*interval)) for interval in data[asset]]))[n]) for n in range(features_len)]
+        min_values = []
+        max_values = []
+        
+        # determine min and maxm values according to the scaling-mode
+        for n, feature in enumerate(separated_features[asset]):
+            if feature_list[n]['scaling-mode'] == 'min-max-scaler':
+                min_value = min(feature)
+                max_value = max(feature)
+
+            elif feature_list[n]['scaling-mode'] == 'limit-scaler':
+                min_value = feature_list[n]['scaling-limits'][0]
+                max_value = feature_list[n]['scaling-limits'][1]
+
+            min_values.append(min_value),
+            max_values.append(max_value)
+
+        scale_values[asset] = {'min': min_values, 'max': max_values}
+
+        # scale training and val sequences using the following formula: (b-a)*(x-min)/(max-min)+a where [a, b] are the scaling limits e.g. [0, 1] and min/max the extreme values
+        train_sequences[asset] = [[[
+            (feature_list[idx_inner]['scaling-interval'][1] - feature_list[idx_inner]['scaling-interval'][0]) * (feature - scale_values[asset]['min'][idx_inner]) / (scale_values[asset]['max'][idx_inner] - scale_values[asset]['min'][idx_inner]) + feature_list[idx_inner]['scaling-interval'][0]
+        for idx_inner, feature in enumerate(features)] for features in interval] for interval in train_sequences[asset]]
+       
+        val_sequences[asset] = [[[
+            (feature_list[idx_inner]['scaling-interval'][1] - feature_list[idx_inner]['scaling-interval'][0]) * (feature - scale_values[asset]['min'][idx_inner]) / (scale_values[asset]['max'][idx_inner] - scale_values[asset]['min'][idx_inner]) + feature_list[idx_inner]['scaling-interval'][0]
+        for idx_inner, feature in enumerate(features)] for features in interval] for interval in val_sequences[asset]]
 
     # get features for encoder and decoder layer
     layer_features = {
-        'encoder_features': [n for n in range(len(features)) if 'enc' in list(features.values())[n]['used-by-layer']],
-        'decoder_features': [n for n in range(len(features)) if 'dec' in list(features.values())[n]['used-by-layer']]
+        'encoder_features': [n for n in range(features_len) if 'enc' in feature_list[n]['used-by-layer']],
+        'decoder_features': [n for n in range(features_len) if 'dec' in feature_list[n]['used-by-layer']]
     }
 
     # create Dataloader
@@ -234,8 +233,8 @@ def main():
     num_intervals = 10000 # num_intervals: number of intervals as integer
     assets = {}
 
-    #asset_codes = ['ZRX', '1INCH', 'AAVE', 'GHST', 'ALGO', 'ANKR', 'ANT', 'REP', 'REPV2', 'AXS', 'BADGER', 'BAL', 'BNT', 'BAND', 'BAT', 'XBT', 'BCH', 'ADA', 'CTSI', 'LINK', 'CHZ', 'COMP', 'ATOM', 'CQT', 'CRV', 'DASH', 'MANA', 'XDG', 'DYDX', 'EWT', 'ENJ', 'MLN', 'EOS', 'ETH', 'ETC', 'FIL', 'FLOW', 'GNO', 'ICX', 'INJ', 'KAR', 'KAVA', 'KEEP', 'KSM', 'KNC', 'LSK', 'LTC', 'LPT', 'LRC', 'MKR', 'MINA', 'MIR', 'XMR', 'MOVR', 'NANO', 'OCEAN', 'OMG', 'OXT', 'OGN', 'OXY', 'PAXG', 'PERP', 'DOT', 'MATIC', 'QTUM', 'REN', 'RARI', 'RAY', 'XRP', 'SRM', 'SDN', 'SC', 'SOL', 'XLM', 'STORJ', 'SUSHI', 'SNX', 'TBTC', 'XTZ', 'GRT', 'SAND', 'TRX', 'UNI', 'WAVES', 'WBTC', 'YFI', 'ZEC']
-    asset_codes = ['XBT', 'ETH']
+    asset_codes = ['ZRX', '1INCH', 'AAVE', 'GHST', 'ALGO', 'ANKR', 'ANT', 'REP', 'REPV2', 'AXS', 'BADGER', 'BAL', 'BNT', 'BAND', 'BAT', 'XBT', 'BCH', 'ADA', 'CTSI', 'LINK', 'CHZ', 'COMP', 'ATOM', 'CQT', 'CRV', 'DASH', 'MANA', 'XDG', 'DYDX', 'EWT', 'ENJ', 'MLN', 'EOS', 'ETH', 'ETC', 'FIL', 'FLOW', 'GNO', 'ICX', 'INJ', 'KAR', 'KAVA', 'KEEP', 'KSM', 'KNC', 'LSK', 'LTC', 'LPT', 'LRC', 'MKR', 'MINA', 'MIR', 'XMR', 'MOVR', 'NANO', 'OCEAN', 'OMG', 'OXT', 'OGN', 'OXY', 'PAXG', 'PERP', 'DOT', 'MATIC', 'QTUM', 'REN', 'RARI', 'RAY', 'XRP', 'SRM', 'SDN', 'SC', 'SOL', 'XLM', 'STORJ', 'SUSHI', 'SNX', 'TBTC', 'XTZ', 'GRT', 'SAND', 'TRX', 'UNI', 'WAVES', 'WBTC', 'YFI', 'ZEC']
+    #asset_codes = ['XBT', 'ETH']
     for asset_code in asset_codes: 
         assets[f'{asset_code}-{parameters.asset_interval}'] = {
             'api-name': f'{asset_code}USD',
