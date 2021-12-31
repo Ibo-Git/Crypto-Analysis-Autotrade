@@ -36,7 +36,7 @@ def custom_candles(dataframe, asset_interval):
     data = dataframe.drop(['Datetime'], axis=1).to_numpy().tolist()
 
     # concatenate 1 minutes to length of asset_interval and separate overlapping intervals
-    data_separated_by_interval = [[data[i + n:i + n + asset_interval] for n in range(0, len(data) - asset_interval, asset_interval)] for i in range(asset_interval)]
+    data_separated_by_interval = [[data[i + n:i + n + asset_interval] for n in range(0, len(data) - asset_interval, asset_interval)] for i in range(0, asset_interval, 2)]
 
     # combine the 1 minute candles for each feature to one candle of asset_interval length
     for num_interval, interval in enumerate(data_separated_by_interval):
@@ -82,6 +82,7 @@ def custom_candles(dataframe, asset_interval):
 
 def data_preprocessing(params, assets, features):
     data = {}
+    assets_cleaned = []
 
     # load each asset using custom candles
     if params.overwrite_saved_data or not os.path.isfile('data.pkl'):
@@ -90,6 +91,7 @@ def data_preprocessing(params, assets, features):
             crypto_df = load_asset(asset['api-name'], num_intervals=asset['num_intervals'])
             if len(crypto_df) == params.num_intervals:
                 data[asset_key] = custom_candles(crypto_df, params.asset_interval)
+                assets_cleaned.append(asset_key)
 
         with open('data.pkl', 'wb') as file:
             pickle.dump(data, file)
@@ -180,7 +182,7 @@ def data_preprocessing(params, assets, features):
     #     full_ds[asset_key] = CustomDataset({asset_key: asset}, layer_features, params.encoder_input_length, params.prediction_length, params.shift)
     #     full_dl[asset_key] = DataLoader(full_ds[asset_key], batch_size=params.batch_size['plot'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
 
-    return train_dl, val_dl, full_dl, scale_values, feature_avg
+    return train_dl, val_dl, full_dl, scale_values, feature_avg, assets_cleaned
 
 
 class InitializeParameters():
@@ -294,7 +296,12 @@ def main():
         }
     }
 
-    train_dl, val_dl, full_dl, scale_values, feature_avg = data_preprocessing(parameters, assets, features)
+    train_dl, val_dl, full_dl, scale_values, feature_avg, assets_cleaned = data_preprocessing(parameters, assets, features)
+
+    # remove assets from dict that didn't contain much data
+    for asset_key in asset_codes:
+        if f'{asset_key}-{parameters.asset_interval}' not in assets_cleaned:
+            del assets[f'{asset_key}-{parameters.asset_interval}']
 
     # Start Training and / or Evaluation
     if not parameters.eval_mode:
