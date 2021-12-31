@@ -88,7 +88,8 @@ def data_preprocessing(params, assets, features):
         for asset_key, asset in assets.items():
             #crypto_df = yf.download(tickers=asset['api-name'], period=asset['period'], interval=asset['interval'])
             crypto_df = load_asset(asset['api-name'], num_intervals=asset['num_intervals'])
-            data[asset_key] = custom_candles(crypto_df, params.asset_interval)
+            if len(crypto_df) == params.num_intervals:
+                data[asset_key] = custom_candles(crypto_df, params.asset_interval)
 
         with open('data.pkl', 'wb') as file:
             pickle.dump(data, file)
@@ -100,6 +101,10 @@ def data_preprocessing(params, assets, features):
     # split into training and validation sequences
     train_sequences = {}
     val_sequences = {}
+    feature_avg = {
+        'train': {},
+        'val': {}
+    }
 
     for asset_key, asset in data.items():
         train_sequences[asset_key]  = []
@@ -116,11 +121,9 @@ def data_preprocessing(params, assets, features):
             interval_avg_val.append(np.mean(np.abs(np.diff(list(zip(*val_sequences[asset_key][num_interval])))), 1))
 
         # average the avg change over all intervals
-        feature_avg = {
-            'train': {asset_key: np.mean(list(zip(*interval_avg_train)), 1)},
-            'val': {asset_key: np.mean(list(zip(*interval_avg_val)), 1)}
-        }
-
+        feature_avg['train'] [asset_key] = np.mean(list(zip(*interval_avg_train)), 1)
+        feature_avg['val'][asset_key] = np.mean(list(zip(*interval_avg_val)), 1)
+    
     # scaling training and validation sequences according to their scaling-mode
     features_len = len(features.values())
     feature_list = list(features.values())
@@ -191,6 +194,7 @@ class InitializeParameters():
         self.model_name = 'volumetest-allassets2'
 
         self.asset_interval = 60
+        self.num_intervals = 100 * self.asset_interval # num_intervals: number of intervals as integer
         self.split_percent = 0.9
         self.encoder_input_length = 60
         self.prediction_length = 1
@@ -230,15 +234,14 @@ class InitializeParameters():
 
 def main():
     parameters = InitializeParameters()
-    num_intervals = 10000 # num_intervals: number of intervals as integer
     assets = {}
 
     asset_codes = ['ZRX', '1INCH', 'AAVE', 'GHST', 'ALGO', 'ANKR', 'ANT', 'REP', 'REPV2', 'AXS', 'BADGER', 'BAL', 'BNT', 'BAND', 'BAT', 'XBT', 'BCH', 'ADA', 'CTSI', 'LINK', 'CHZ', 'COMP', 'ATOM', 'CQT', 'CRV', 'DASH', 'MANA', 'XDG', 'DYDX', 'EWT', 'ENJ', 'MLN', 'EOS', 'ETH', 'ETC', 'FIL', 'FLOW', 'GNO', 'ICX', 'INJ', 'KAR', 'KAVA', 'KEEP', 'KSM', 'KNC', 'LSK', 'LTC', 'LPT', 'LRC', 'MKR', 'MINA', 'MIR', 'XMR', 'MOVR', 'NANO', 'OCEAN', 'OMG', 'OXT', 'OGN', 'OXY', 'PAXG', 'PERP', 'DOT', 'MATIC', 'QTUM', 'REN', 'RARI', 'RAY', 'XRP', 'SRM', 'SDN', 'SC', 'SOL', 'XLM', 'STORJ', 'SUSHI', 'SNX', 'TBTC', 'XTZ', 'GRT', 'SAND', 'TRX', 'UNI', 'WAVES', 'WBTC', 'YFI', 'ZEC']
-    #asset_codes = ['XBT', 'ETH']
+    #asset_codes = ['XBT', 'ETH', 'RAY']
     for asset_code in asset_codes: 
         assets[f'{asset_code}-{parameters.asset_interval}'] = {
             'api-name': f'{asset_code}USD',
-            'num_intervals': num_intervals
+            'num_intervals': parameters.num_intervals
         }
 
     features = {
