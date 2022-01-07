@@ -160,18 +160,18 @@ class Trainer():
     def evaluate_transformer(self, encoder_input, decoder_input, target_tensor, asset_tag):
         self.model.eval()
 
-        # tensors to device
-        encoder_input = encoder_input.to(self.device)
-        decoder_input = decoder_input.to(self.device)
-        target_tensor = target_tensor.to(self.device)
+        with torch.no_grad():
+            # tensors to device
+            encoder_input = encoder_input.to(self.device)
+            decoder_input = decoder_input.to(self.device)
+            target_tensor = target_tensor.to(self.device)
 
-        # determine loss and accuracy
-        output = self.model(encoder_input, decoder_input)
-        loss = self.criterion(output, target_tensor).item()
+            # determine loss and accuracy
+            output = self.model(encoder_input, decoder_input)
+            loss = self.criterion(output, target_tensor).item()
 
-        acc = self.get_accuracy(output, target_tensor, asset_tag)
-
-        return loss, acc
+            acc = self.get_accuracy(output, target_tensor, asset_tag)
+            return loss, acc
 
 
     def get_accuracy(self, output, target, asset_tag):
@@ -310,34 +310,36 @@ class Trainer():
 
 
     def plot_prediction_vs_target(self, dataloader, split_percent, list_of_features):
+        self.model.eval()
 
-        # get x and y data for plots
-        output_for_plot, target_for_plot, asset_tag = self.one_day_prediction_from_dataloader(dataloader)
-        x_axis = range(len(output_for_plot))
-        train_index = int(split_percent * x_axis[-1])
-        
-        # create subplots for all features
-        num_features = output_for_plot.shape[-1]
-        num_features_x = 1 if num_features <= 2 else (2 if num_features <= 6 else 3)
-        num_features_y = max(1, math.ceil(num_features / num_features_x))
-        fig, axs = plt.subplots(num_features_x, num_features_y, squeeze=False)
-        
-        n = 0
-        for n_x in range(num_features_x):
-            for n_y in range(num_features_y):
-                axs[n_x, n_y].plot(x_axis[:train_index], target_for_plot[:train_index, 0, n], label = 'Training target')
-                axs[n_x, n_y].plot(x_axis[train_index:], target_for_plot[train_index:, 0, n], label = 'Validation target')
-                axs[n_x, n_y].plot(x_axis[:train_index], output_for_plot[:train_index, 0, n], label = 'Training prediction')
-                axs[n_x, n_y].plot(x_axis[train_index:], output_for_plot[train_index:, 0, n], label = 'Validation prediction')
-                axs[n_x, n_y].legend(loc = "upper left")
-                axs[n_x, n_y].set_title(f"Prediction vs Target - Feature '{list_of_features[n]}'")
-                axs[n_x, n_y].set_xlabel('Time')
-                axs[n_x, n_y].set_ylabel(f'{asset_tag} value in USD')
-                n += 1
-  
-        fig.tight_layout()
-        fig.suptitle(asset_tag)
-        plt.show()
+        with torch.no_grad():
+            # get x and y data for plots
+            output_for_plot, target_for_plot, asset_tag = self.one_day_prediction_from_dataloader(dataloader)
+            x_axis = range(len(output_for_plot))
+            train_index = int(split_percent * x_axis[-1])
+            
+            # create subplots for all features
+            num_features = output_for_plot.shape[-1]
+            num_features_x = 1 if num_features <= 2 else (2 if num_features <= 6 else 3)
+            num_features_y = max(1, math.ceil(num_features / num_features_x))
+            fig, axs = plt.subplots(num_features_x, num_features_y, squeeze=False)
+            
+            n = 0
+            for n_x in range(num_features_x):
+                for n_y in range(num_features_y):
+                    axs[n_x, n_y].plot(x_axis[:train_index], target_for_plot[:train_index, 0, n], label = 'Training target')
+                    axs[n_x, n_y].plot(x_axis[train_index:], target_for_plot[train_index:, 0, n], label = 'Validation target')
+                    axs[n_x, n_y].plot(x_axis[:train_index], output_for_plot[:train_index, 0, n], label = 'Training prediction')
+                    axs[n_x, n_y].plot(x_axis[train_index:], output_for_plot[train_index:, 0, n], label = 'Validation prediction')
+                    axs[n_x, n_y].legend(loc = "upper left")
+                    axs[n_x, n_y].set_title(f"Prediction vs Target - Feature '{list_of_features[n]}'")
+                    axs[n_x, n_y].set_xlabel('Time')
+                    axs[n_x, n_y].set_ylabel(f'{asset_tag} value in USD')
+                    n += 1
+    
+            fig.tight_layout()
+            fig.suptitle(asset_tag)
+            plt.show()
     
     
     def one_day_prediction_from_dataloader(self,  dataloader):
