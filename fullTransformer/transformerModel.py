@@ -87,6 +87,7 @@ class Trainer():
         # get decoder features
         self.feature_list = list(features.values())
         self.decoder_features = [n for n in range(len(features)) if 'dec' in self.feature_list[n]['used-by-layer']]
+        self.encoder_features = [n for n in range(len(features)) if 'enc' in self.feature_list[n]['used-by-layer']]
 
     def perform_epoch(self, dataloader, assets, mode, feature_avg, param_lr=None):
         loss = []
@@ -187,10 +188,10 @@ class Trainer():
         return acc
 
 
-    def scale_assets_to_normal(self, data, asset_tag):
+    def scale_assets_to_normal(self, data, asset_tag, type='decoder'):
         scale_values = self.scale_values
         feature_list = self.feature_list
-        decoder_features = self.decoder_features
+        feature_type = self.decoder_features if type == 'decoder' else self.encoder_features
 
         # a = feature_list[idx_inner]['scaling-interval'][0]
         # b = feature_list[idx_inner]['scaling-interval'][1]
@@ -199,14 +200,14 @@ class Trainer():
         # scaled_data = (data - a) / (b - a) * (max - min) + min        with interval [a, b] 
 
         scaled_data = [[[(
-            (feature - feature_list[decoder_features[idx_inner]]['scaling-interval'][0]) / # (data - a)
-            (feature_list[decoder_features[idx_inner]]['scaling-interval'][1] - feature_list[decoder_features[idx_inner]]['scaling-interval'][0]) * # (b - a)
-            (scale_values[asset_tag[idx_sequence]]['max'][decoder_features[idx_inner]] - scale_values[asset_tag[idx_sequence]]['min'][decoder_features[idx_inner]]) + # (max - min)
-            scale_values[asset_tag[idx_sequence]]['min'][decoder_features[idx_inner]] # min
+            (feature - feature_list[feature_type[idx_inner]]['scaling-interval'][0]) / # (data - a)
+            (feature_list[feature_type[idx_inner]]['scaling-interval'][1] - feature_list[feature_type[idx_inner]]['scaling-interval'][0]) * # (b - a)
+            (scale_values[asset_tag[idx_sequence]]['max'][feature_type[idx_inner]] - scale_values[asset_tag[idx_sequence]]['min'][feature_type[idx_inner]]) + # (max - min)
+            scale_values[asset_tag[idx_sequence]]['min'][feature_type[idx_inner]] # min
             ) for idx_inner, feature in enumerate(features)] for features in sequence] for idx_sequence, sequence in enumerate(data)]
 
         return torch.tensor(scaled_data)
-
+        
 
     def set_learningrate(self, new_lr):
         for g in self.optimizer.param_groups:
@@ -359,7 +360,32 @@ class Trainer():
 
     
    
+    def evaluate_profit(self, dataloader):
+        self.model.eval()
+        # get correct indices
+        idx_buy_yes = [k for k, n in enumerate(self.decoder_features) if list(self.features.keys())[n] == 'buy-yes']
+        idx_buy_no = [k for k, n in enumerate(self.decoder_features) if list(self.features.keys())[n] == 'buy-no']
+        idx_close = [k for k, n in enumerate(self.encoder_features) if list(self.features.keys())[n] == 'close']
+        idx_high = [k for k, n in enumerate(self.encoder_features) if list(self.features.keys())[n] == 'high']
 
-    
-        
+        for encoder_input, decoder_input, eval_target, asset_tag in dataloader:
+            # tensors to device
+            encoder_input = encoder_input.to(self.device)
+            decoder_input = decoder_input.to(self.device)
+            eval_target = eval_target.to(self.device)
+            # get prediction
+            prediction = self.model(encoder_input, decoder_input)
+            # set conditions for buy or not
+            buy_no = True if prediction[0, 0, idx_buy_no] > 0.5 else False
+            buy_yes = True if buy_no == 0 and prediction[0, 0, idx_buy_yes] > 0.7 else False
+
+            if buy_yes:
+                high_value = self.scale_assets_to_normal(eval_target, asset_tag, type='encoder')[0, 0, idx_high]
+                close_value = self.scale_assets_to_normal(encoder_input, asset_tag, type='encoder')[0, -1, idx_close]
+                gain_percent = (high_value / close_value) - 1
+
+            
+
+
+            
         
