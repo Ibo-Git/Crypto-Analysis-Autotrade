@@ -94,18 +94,18 @@ def data_preprocessing(params, assets, features):
     # load each asset using custom candles
     if params.overwrite_saved_data or not os.path.isfile('data.pkl'):
         for asset_key, asset in assets.items():
-            #crypto_df = yf.download(tickers=asset['api-name'], period=asset['period'], interval=asset['interval'])
-            data_df_1min[asset_key] = load_asset(asset['api-name'], num_intervals=asset['num_intervals'])
-            if len(data_df_1min[asset_key]) == params.num_intervals:
+            data_1min = load_asset(asset['api-name'], num_intervals=asset['num_intervals'])
+            if len(data_1min) == params.num_intervals:
+                data_df_1min[asset_key] = data_1min
                 data[asset_key] = custom_candles(data_df_1min[asset_key], params)
                 assets_cleaned.append(asset_key)
 
         with open('data.pkl', 'wb') as file:
-            pickle.dump([data, data_df_1min], file)
+            pickle.dump([data, data_df_1min, assets_cleaned], file)
             
     else:
         with open('data.pkl', 'rb') as file:
-            data, data_df_1min = pickle.load(file)
+            data, data_df_1min, assets_cleaned = pickle.load(file)
 
     # split into training and validation sequences
     train_sequences = {}
@@ -202,20 +202,20 @@ def data_preprocessing(params, assets, features):
 class InitializeParameters():
     def __init__(self):
         self.val_set_eval_during_training = True
-        self.eval_mode = False
-        self.load_model = False
-        self.overwrite_saved_data = True
+        self.eval_mode = True
+        self.load_model = True
+        self.overwrite_saved_data = False
 
         #self.model_name = 'test-multi-asset-5m'
-        self.model_name = 'volumetest-allassets2'
+        self.model_name = 'test--1'
 
         self.asset_interval = 60
-        self.copy_shift = 1
-        self.num_intervals = 5000 * self.asset_interval # num_intervals: number of intervals as integer
+        self.copy_shift = 4
+        self.num_intervals = 2000 * self.asset_interval # num_intervals: number of intervals as integer
         self.split_percent = 0.9
-        self.encoder_input_length = 60
+        self.encoder_input_length = 12
         self.prediction_length = 1
-        self.sequence_shift = 1
+        self.sequence_shift = 4
         self.lr_overwrite_for_load = None 
 
         self.batch_size = {
@@ -340,11 +340,17 @@ def main():
         checkpoint = Trainer.load_checkpoint(parameters.model_name)
         trainer = Trainer.create_trainer(params=checkpoint, features=features, scale_values=scale_values)
         trainer.load_training(parameters.model_name)
-        trainer.perform_epoch(dataloader=val_dl, assets=assets, mode='val', feature_avg=feature_avg['val'])
+        # # # # # # # # trainer.perform_epoch(dataloader=val_dl, assets=assets, mode='val', feature_avg=feature_avg['val'])
 
-        # Profit???
-        # on validation set
-        trainer.evaluate_profit(eval_dl, data_df_1min)
+        prediction_map = trainer.map_prediction_to_1min(eval_dl, assets)
+        
+        for asset_key, data_1min in data_df_1min.items():
+            for _, datapoint_1min in data_1min.iterrows():
+                prediction_map_key = int(datapoint_1min['Datetime'])
+                if (prediction_map_key in prediction_map[asset_key]):
+                    prediction = prediction_map[asset_key][prediction_map_key]
+                    buy_yes = prediction[0] >= 0.5 and prediction[1] <= 0.5
+                    
 
         # # Plot
         # decoder_feature_list = [feature for n, feature in enumerate(features) if 'dec' in list(features.values())[n]['used-by-layer']]
