@@ -1,3 +1,4 @@
+import copy
 import math
 import os
 import pickle
@@ -33,7 +34,7 @@ def load_asset(assetname, num_intervals):
 
 def custom_candles(dataframe, params):
     # create list with each dataframe row in a sublist
-    data = dataframe.drop(['Datetime'], axis=1).to_numpy().tolist()
+    data = dataframe.to_numpy().tolist()
 
     # concatenate 1 minutes to length of asset_interval and separate overlapping intervals
     data_separated_by_interval = [[data[i + n:i + n + params.asset_interval] for n in range(0, len(data) - params.asset_interval, params.asset_interval)] for i in range(0, params.asset_interval, min(params.copy_shift, params.asset_interval))]
@@ -43,12 +44,13 @@ def custom_candles(dataframe, params):
         for num_candle, candles in enumerate(shifted_copy):
             candles = list(zip(*candles))
             data_separated_by_interval[num_copy][num_candle] = [
-                candles[0][0], # open
-                max(candles[1]), # high
-                min(candles[2]), # low
-                candles[3][-1], # close
-                sum(candles[4]), # volume
-                sum(candles[5]) # number of trades
+                candles[0][-1], # timestamp
+                candles[1][0], # open
+                max(candles[2]), # high
+                min(candles[3]), # low
+                candles[4][-1], # close
+                sum(candles[5]), # volume
+                sum(candles[6]) # number of trades
             ]
 
     # add additional features e.g. RSI
@@ -56,14 +58,16 @@ def custom_candles(dataframe, params):
 
     for num_copy, shifted_copy in enumerate(data_separated_by_interval):
         # define temporary dataframe to determine additional features using pandas_ta
-        df_temp = pd.DataFrame(shifted_copy, columns=["Open", "High", "Low", "Close", "Volume", "Number of trades"])
+        df_temp = pd.DataFrame(shifted_copy, columns=["Datetime", "Open", "High", "Low", "Close", "Volume", "Number of trades"])
         df_temp.ta.rsi(close='Close', length=rsi_window, append=True)
         df_temp = df_temp.tail(len(df_temp) - rsi_window) # remove NaN entries 
-        data_temp = [] # temporary list to convert dataframe to list
+        data_temp = {} # temporary list to convert dataframe to list
+        data_temp['Data'] = []
+        data_temp['Datetime'] = []
 
         for _, row in df_temp.iterrows():
             # add more features if needed
-            data_temp.append([
+            data_temp['Data'].append([
                 row['Open'], 
                 row['High'], 
                 row['Low'], 
@@ -74,6 +78,8 @@ def custom_candles(dataframe, params):
                 1 if (row['High'] / row['Open']) - 1 >= 0.006 else 0,
                 1 if (row['High'] / row['Open']) - 1 <  0.006 else 0,
             ])
+
+            data_temp['Datetime'].append(int(row['Datetime']))
         
         data_separated_by_interval[num_copy] = data_temp
 
@@ -82,23 +88,24 @@ def custom_candles(dataframe, params):
 
 def data_preprocessing(params, assets, features):
     data = {}
+    data_df_1min = {}
     assets_cleaned = []
 
     # load each asset using custom candles
     if params.overwrite_saved_data or not os.path.isfile('data.pkl'):
         for asset_key, asset in assets.items():
             #crypto_df = yf.download(tickers=asset['api-name'], period=asset['period'], interval=asset['interval'])
-            crypto_df = load_asset(asset['api-name'], num_intervals=asset['num_intervals'])
-            if len(crypto_df) == params.num_intervals:
-                data[asset_key] = custom_candles(crypto_df, params)
+            data_df_1min[asset_key] = load_asset(asset['api-name'], num_intervals=asset['num_intervals'])
+            if len(data_df_1min[asset_key]) == params.num_intervals:
+                data[asset_key] = custom_candles(data_df_1min[asset_key], params)
                 assets_cleaned.append(asset_key)
 
         with open('data.pkl', 'wb') as file:
-            pickle.dump(data, file)
+            pickle.dump([data, data_df_1min], file)
             
     else:
         with open('data.pkl', 'rb') as file:
-            data = pickle.load(file)
+            data, data_df_1min = pickle.load(file)
 
     # split into training and validation sequences
     train_sequences = {}
@@ -109,18 +116,23 @@ def data_preprocessing(params, assets, features):
     }
 
     for asset_key, asset in data.items():
-        train_sequences[asset_key]  = []
-        val_sequences[asset_key]  = []
+        train_sequences[asset_key]  = {}
+        val_sequences[asset_key]  = {}
+        train_sequences[asset_key]['Data']  = []
+        train_sequences[asset_key]['Datetime']  = []
+        val_sequences[asset_key]['Data']  = []
+        val_sequences[asset_key]['Datetime']  = []
         shifted_copy_avg_train = []
         shifted_copy_avg_val = []
 
         for num_copy, shifted_copy in enumerate(asset):
-            train_sequences[asset_key].append(shifted_copy[0:math.floor(len(shifted_copy) * params.split_percent)])
-            val_sequences[asset_key].append(shifted_copy[math.floor(len(shifted_copy) * params.split_percent):])
+            for key, value in shifted_copy.items():
+                train_sequences[asset_key][key].append(value[0:math.floor(len(value) * params.split_percent)])
+                val_sequences[asset_key][key].append(value[math.floor(len(value) * params.split_percent):])
 
             # determine average change for each shifted copy
-            shifted_copy_avg_train.append(np.mean(np.abs(np.diff(list(zip(*train_sequences[asset_key][num_copy])))), 1))
-            shifted_copy_avg_val.append(np.mean(np.abs(np.diff(list(zip(*val_sequences[asset_key][num_copy])))), 1))
+            shifted_copy_avg_train.append(np.mean(np.abs(np.diff(list(zip(*train_sequences[asset_key]['Data'][num_copy])))), 1))
+            shifted_copy_avg_val.append(np.mean(np.abs(np.diff(list(zip(*val_sequences[asset_key]['Data'][num_copy])))), 1))
 
         # average the avg change over all shifted copies
         feature_avg['train'] [asset_key] = np.mean(list(zip(*shifted_copy_avg_train)), 1)
@@ -134,7 +146,7 @@ def data_preprocessing(params, assets, features):
 
     for asset in data:
         # separate all features using zip and concatenate all tuples using reduce
-        separated_features[asset] = [reduce(lambda x,y: x+y, list(zip(*[list(zip(*shifted_copy)) for shifted_copy in data[asset]]))[n]) for n in range(features_len)]
+        separated_features[asset] = [reduce(lambda x,y: x+y, list(zip(*[list(zip(*shifted_copy['Data'])) for shifted_copy in data[asset]]))[n]) for n in range(features_len)]
         min_values = []
         max_values = []
         
@@ -154,13 +166,13 @@ def data_preprocessing(params, assets, features):
         scale_values[asset] = {'min': min_values, 'max': max_values}
 
         # scale training and val sequences using the following formula: (b-a)*(x-min)/(max-min)+a where [a, b] are the scaling limits e.g. [0, 1] and min/max the extreme values
-        train_sequences[asset] = [[[
+        train_sequences[asset]['Data'] = [[[
             (feature_list[idx_inner]['scaling-interval'][1] - feature_list[idx_inner]['scaling-interval'][0]) * (feature - scale_values[asset]['min'][idx_inner]) / (scale_values[asset]['max'][idx_inner] - scale_values[asset]['min'][idx_inner]) + feature_list[idx_inner]['scaling-interval'][0]
-        for idx_inner, feature in enumerate(features)] for features in shifted_copy] for shifted_copy in train_sequences[asset]]
+        for idx_inner, feature in enumerate(features)] for features in shifted_copy] for shifted_copy in train_sequences[asset]['Data']]
        
-        val_sequences[asset] = [[[
+        val_sequences[asset]['Data'] = [[[
             (feature_list[idx_inner]['scaling-interval'][1] - feature_list[idx_inner]['scaling-interval'][0]) * (feature - scale_values[asset]['min'][idx_inner]) / (scale_values[asset]['max'][idx_inner] - scale_values[asset]['min'][idx_inner]) + feature_list[idx_inner]['scaling-interval'][0]
-        for idx_inner, feature in enumerate(features)] for features in shifted_copy] for shifted_copy in val_sequences[asset]]
+        for idx_inner, feature in enumerate(features)] for features in shifted_copy] for shifted_copy in val_sequences[asset]['Data']]
 
     # get features for encoder and decoder layer
     layer_features = {
@@ -184,7 +196,7 @@ def data_preprocessing(params, assets, features):
     #     full_ds[asset_key] = CustomDataset({asset_key: asset}, layer_features, params.encoder_input_length, params.prediction_length, params.sequence_shift)
     #     full_dl[asset_key] = DataLoader(full_ds[asset_key], batch_size=params.batch_size['plot'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
 
-    return train_dl, val_dl, eval_dl, scale_values, feature_avg, assets_cleaned
+    return train_dl, val_dl, eval_dl, scale_values, feature_avg, assets_cleaned, data_df_1min
 
 
 class InitializeParameters():
@@ -192,13 +204,13 @@ class InitializeParameters():
         self.val_set_eval_during_training = True
         self.eval_mode = False
         self.load_model = False
-        self.overwrite_saved_data = False
+        self.overwrite_saved_data = True
 
         #self.model_name = 'test-multi-asset-5m'
         self.model_name = 'volumetest-allassets2'
 
         self.asset_interval = 60
-        self.copy_shift = 2
+        self.copy_shift = 1
         self.num_intervals = 5000 * self.asset_interval # num_intervals: number of intervals as integer
         self.split_percent = 0.9
         self.encoder_input_length = 60
@@ -258,7 +270,7 @@ def main():
         'high': {
             'scaling-mode': 'min-max-scaler',
             'scaling-interval': [0, 1],
-            'used-by-layer': ['enc', 'dec'] 
+            'used-by-layer': ['enc'] 
 
         },
         'low': {
@@ -299,7 +311,7 @@ def main():
         }
     }
 
-    train_dl, val_dl, eval_dl, scale_values, feature_avg, assets_cleaned = data_preprocessing(parameters, assets, features)
+    train_dl, val_dl, eval_dl, scale_values, feature_avg, assets_cleaned, data_df_1min = data_preprocessing(parameters, assets, features)
 
     # remove assets from dict that didn't contain much data
     for asset_key in asset_codes:
@@ -332,7 +344,7 @@ def main():
 
         # Profit???
         # on validation set
-        trainer.evaluate_profit(eval_dl)
+        trainer.evaluate_profit(eval_dl, data_df_1min)
 
         # # Plot
         # decoder_feature_list = [feature for n, feature in enumerate(features) if 'dec' in list(features.values())[n]['used-by-layer']]

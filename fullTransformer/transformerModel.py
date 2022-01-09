@@ -362,24 +362,31 @@ class Trainer():
 
     
    
-    def evaluate_profit(self, dataloader):
+    def evaluate_profit(self, dataloader, data_df_1min):
         self.model.eval()
+        prediction_table  = {}
+
         # get correct indices
         idx_buy_yes = [k for k, n in enumerate(self.decoder_features) if list(self.features.keys())[n] == 'buy-yes']
         idx_buy_no = [k for k, n in enumerate(self.decoder_features) if list(self.features.keys())[n] == 'buy-no']
         idx_close = [k for k, n in enumerate(self.encoder_features) if list(self.features.keys())[n] == 'close']
         idx_high = [k for k, n in enumerate(self.encoder_features) if list(self.features.keys())[n] == 'high']
 
-        for encoder_input, decoder_input, eval_target, asset_tag in dataloader:
+        for encoder_input, decoder_input, eval_target, asset_tag, timestamp in dataloader:
             # tensors to device
             encoder_input = encoder_input.to(self.device)
             decoder_input = decoder_input.to(self.device)
             eval_target = eval_target.to(self.device)
             # get prediction
             prediction = self.model(encoder_input, decoder_input)
+
+            for n in range(len(timestamp)):
+                prediction_table[timestamp[n].item()] = prediction[n].tolist()[0]
+
+        breakpoint = None
             # set conditions for buy or not
-            buy_no = (prediction[:, 0, idx_buy_no] > 0.5).squeeze(-1).numpy()
-            buy_yes = buy_no & (prediction[:, 0, idx_buy_yes] > 0.5).squeeze(-1).numpy()
+            #buy_no = (prediction[:, 0, idx_buy_no] > 0.5).squeeze(-1).numpy()
+            #buy_yes = buy_no & (prediction[:, 0, idx_buy_yes] > 0.5).squeeze(-1).numpy()
 
             # if buy_yes:
             #     high_value = self.scale_assets_to_normal(eval_target, asset_tag, type='encoder')[0, 0, idx_high]
