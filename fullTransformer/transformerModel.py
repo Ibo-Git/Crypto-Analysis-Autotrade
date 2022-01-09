@@ -378,13 +378,13 @@ class Trainer():
             # get prediction
             prediction = self.model(encoder_input, decoder_input)
             # set conditions for buy or not
-            buy_no = True if prediction[0, 0, idx_buy_no] > 0.5 else False
-            buy_yes = True if buy_no == 0 and prediction[0, 0, idx_buy_yes] > 0.7 else False
+            buy_no = (prediction[:, 0, idx_buy_no] > 0.5).squeeze(-1).numpy()
+            buy_yes = buy_no & (prediction[:, 0, idx_buy_yes] > 0.5).squeeze(-1).numpy()
 
-            if buy_yes:
-                high_value = self.scale_assets_to_normal(eval_target, asset_tag, type='encoder')[0, 0, idx_high]
-                close_value = self.scale_assets_to_normal(encoder_input, asset_tag, type='encoder')[0, -1, idx_close]
-                gain_percent = (high_value / close_value) - 1
+            # if buy_yes:
+            #     high_value = self.scale_assets_to_normal(eval_target, asset_tag, type='encoder')[0, 0, idx_high]
+            #     close_value = self.scale_assets_to_normal(encoder_input, asset_tag, type='encoder')[0, -1, idx_close]
+            #     gain_percent = (high_value / close_value) - 1
 
             
 

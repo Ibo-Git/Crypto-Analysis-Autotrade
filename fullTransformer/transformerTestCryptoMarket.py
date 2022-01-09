@@ -174,7 +174,7 @@ def data_preprocessing(params, assets, features):
     val_ds = CustomDataset(val_sequences, layer_features, params.encoder_input_length, params.prediction_length, params.sequence_shift)
     train_dl = DataLoader(train_ds, batch_size=params.batch_size['training'], shuffle=True, num_workers=0, pin_memory=True, persistent_workers=False)
     val_dl = DataLoader(val_ds, batch_size=params.batch_size['validation'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
-    eval_dl = DataLoader(eval_ds, batch_size=1, shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
+    eval_dl = DataLoader(eval_ds, batch_size=params.batch_size['validation'], shuffle=False, num_workers=0, pin_memory=True, persistent_workers=False)
 
     # Datasets and Dataloader for plots
     full_ds = {}
