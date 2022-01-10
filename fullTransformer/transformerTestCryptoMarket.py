@@ -344,12 +344,30 @@ def main():
 
         prediction_map = trainer.map_prediction_to_1min(eval_dl, assets)
         
+        buy_in_points = dict.fromkeys(assets.keys(), [])
+        percentage_earnings = dict.fromkeys(assets.keys(), 0)
+        
+        last_datapoint = dict.fromkeys(assets.keys(), None)
+
         for asset_key, data_1min in data_df_1min.items():
             for _, datapoint_1min in data_1min.iterrows():
                 prediction_map_key = int(datapoint_1min['Datetime'])
-                if (prediction_map_key in prediction_map[asset_key]):
+
+                for buy_in_point in buy_in_points[asset_key]:
+                    if buy_in_point['state'] == 'open':
+                        if last_datapoint[asset_key] is not None and last_datapoint[asset_key]['Close'] < datapoint_1min['Close']:
+                            buy_in_point['state'] = 'closed'
+                            percentage_earnings[asset_key] += (datapoint_1min['Close'] * 0.9974**2 - buy_in_point['entry_datapoint']['Close']) / buy_in_point['entry_datapoint']['Close']
+                            buy_in_point['last_datapoint'] = datapoint_1min
+
+                if prediction_map_key in prediction_map[asset_key]:
                     prediction = prediction_map[asset_key][prediction_map_key]
                     buy_yes = prediction[0] >= 0.5 and prediction[1] <= 0.5
+
+                    if buy_yes:
+                        buy_in_points[asset_key].append({ 'timestamp': prediction_map_key, 'entry_datapoint': datapoint_1min, 'state': 'open' })
+
+                last_datapoint[asset_key] = datapoint_1min
                     
 
         # # Plot
