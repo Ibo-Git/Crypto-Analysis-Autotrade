@@ -364,7 +364,7 @@ class Trainer():
    
     def map_prediction_to_1min(self, dataloader, assets):
         self.model.eval()
-        prediction_table = dict.fromkeys(assets.keys(), {})
+        prediction_table = { asset_key: {} for asset_key in assets.keys() }
 
         for encoder_input, decoder_input, eval_target, asset_tag, timestamp in dataloader:
             # tensors to device

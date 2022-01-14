@@ -65,21 +65,26 @@ def custom_candles(dataframe, params):
         data_temp['Data'] = []
         data_temp['Datetime'] = []
 
-        for _, row in df_temp.iterrows():
-            # add more features if needed
-            data_temp['Data'].append([
-                row['Open'], 
-                row['High'], 
-                row['Low'], 
-                row['Close'],
-                row['Volume'],
-                row['Number of trades'],
-                row['RSI_10'],
-                1 if (row['High'] / row['Open']) - 1 >= 0.006 else 0,
-                1 if (row['High'] / row['Open']) - 1 <  0.006 else 0,
-            ])
+        last_row = None
 
-            data_temp['Datetime'].append(int(row['Datetime']))
+        for _, row in df_temp.iterrows():
+            if last_row is not None:
+                # add more features if needed
+                data_temp['Data'].append([
+                    row['Open'], 
+                    row['High'], 
+                    row['Low'], 
+                    row['Close'],
+                    row['Volume'],
+                    row['Number of trades'],
+                    row['RSI_10'],
+                    1 if (row['High'] / row['Open']) - 1 >= 0.006 else 0,
+                    1 if (row['High'] / row['Open']) - 1 <  0.006 else 0,
+                ])
+
+                data_temp['Datetime'].append(int(row['Datetime']))
+
+            last_row = row
         
         data_separated_by_interval[num_copy] = data_temp
 
@@ -116,8 +121,8 @@ def data_preprocessing(params, assets, features):
     }
 
     for asset_key, asset in data.items():
-        train_sequences[asset_key]  = {}
-        val_sequences[asset_key]  = {}
+        train_sequences[asset_key] = {}
+        val_sequences[asset_key] = {}
         train_sequences[asset_key]['Data']  = []
         train_sequences[asset_key]['Datetime']  = []
         val_sequences[asset_key]['Data']  = []
@@ -213,7 +218,7 @@ class InitializeParameters():
         self.copy_shift = 4
         self.num_intervals = 2000 * self.asset_interval # num_intervals: number of intervals as integer
         self.split_percent = 0.9
-        self.encoder_input_length = 12
+        self.encoder_input_length = 4
         self.prediction_length = 1
         self.sequence_shift = 4
         self.lr_overwrite_for_load = None 
@@ -228,10 +233,10 @@ class InitializeParameters():
         self.params = {
             # Model
             'encoder_input_length': self.encoder_input_length,
-            'n_heads': 2,
+            'n_heads': 8,
             'd_model': 512,
-            'num_encoder_layers': 1,
-            'num_decoder_layers': 1,
+            'num_encoder_layers': 6,
+            'num_decoder_layers': 6,
             'dim_feedforward': 2048, 
             'dropout': 0,
             # Optim
@@ -343,11 +348,11 @@ def main():
         # # # # # # # # trainer.perform_epoch(dataloader=val_dl, assets=assets, mode='val', feature_avg=feature_avg['val'])
 
         prediction_map = trainer.map_prediction_to_1min(eval_dl, assets)
+        buy_in_points = { asset_key: [] for asset_key in assets.keys() }
+        percentage_earnings = { asset_key: 0 for asset_key in assets.keys() }
+        percentage_earnings_list = { asset_key: [] for asset_key in assets.keys() }
         
-        buy_in_points = dict.fromkeys(assets.keys(), [])
-        percentage_earnings = dict.fromkeys(assets.keys(), 0)
-        
-        last_datapoint = dict.fromkeys(assets.keys(), None)
+        last_datapoint = { asset_key: None for asset_key in assets.keys() }
 
         for asset_key, data_1min in data_df_1min.items():
             for _, datapoint_1min in data_1min.iterrows():
@@ -355,20 +360,28 @@ def main():
 
                 for buy_in_point in buy_in_points[asset_key]:
                     if buy_in_point['state'] == 'open':
-                        if last_datapoint[asset_key] is not None and last_datapoint[asset_key]['Close'] < datapoint_1min['Close']:
+                        if last_datapoint[asset_key] is not None and last_datapoint[asset_key]['Close'] > datapoint_1min['Close']:
                             buy_in_point['state'] = 'closed'
-                            percentage_earnings[asset_key] += (datapoint_1min['Close'] * 0.9974**2 - buy_in_point['entry_datapoint']['Close']) / buy_in_point['entry_datapoint']['Close']
+                            percent_earning = (datapoint_1min['Close'] * 0.9974**2 - buy_in_point['entry_datapoint']['Close']) / buy_in_point['entry_datapoint']['Close']
+                            percentage_earnings_list[asset_key].append(percent_earning)
+                            percentage_earnings[asset_key] += percent_earning
                             buy_in_point['last_datapoint'] = datapoint_1min
+                        # if last_datapoint[asset_key] is not None and last_datapoint[asset_key]['Close'] > (datapoint_1min['High'] - datapoint_1min['Close']) * 0.5 + datapoint_1min['Close']:
+                        #     buy_in_point['state'] = 'closed'
+                        #     percent_earning = (datapoint_1min['High'] * 0.9974**2 - buy_in_point['entry_datapoint']['Close']) / buy_in_point['entry_datapoint']['Close']
+                        #     percentage_earnings_list[asset_key].append(percent_earning)
+                        #     percentage_earnings[asset_key] += percent_earning
+                        #     buy_in_point['last_datapoint'] = datapoint_1min
 
                 if prediction_map_key in prediction_map[asset_key]:
                     prediction = prediction_map[asset_key][prediction_map_key]
-                    buy_yes = prediction[0] >= 0.5 and prediction[1] <= 0.5
+                    buy_yes = prediction[0] >= 0.78 and prediction[1] <= 0.22
 
                     if buy_yes:
                         buy_in_points[asset_key].append({ 'timestamp': prediction_map_key, 'entry_datapoint': datapoint_1min, 'state': 'open' })
 
                 last_datapoint[asset_key] = datapoint_1min
-                    
+
 
         # # Plot
         # decoder_feature_list = [feature for n, feature in enumerate(features) if 'dec' in list(features.values())[n]['used-by-layer']]
