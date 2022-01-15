@@ -360,12 +360,18 @@ def main():
 
                 for buy_in_point in buy_in_points[asset_key]:
                     if buy_in_point['state'] == 'open':
-                        if last_datapoint[asset_key] is not None and last_datapoint[asset_key]['Close'] > datapoint_1min['Close']:
+                        if last_datapoint[asset_key] is not None and (buy_in_point['entry_datapoint']['Close'] > datapoint_1min['Close'] * 1.004 or last_datapoint[asset_key]['Close'] > datapoint_1min['Close'] * 1.003):
                             buy_in_point['state'] = 'closed'
                             percent_earning = (datapoint_1min['Close'] * 0.9974**2 - buy_in_point['entry_datapoint']['Close']) / buy_in_point['entry_datapoint']['Close']
                             percentage_earnings_list[asset_key].append(percent_earning)
                             percentage_earnings[asset_key] += percent_earning
                             buy_in_point['last_datapoint'] = datapoint_1min
+                        # if last_datapoint[asset_key] is not None and last_datapoint[asset_key]['Close'] > datapoint_1min['Close']:
+                        #     buy_in_point['state'] = 'closed'
+                        #     percent_earning = (datapoint_1min['Close'] * 0.9974**2 - buy_in_point['entry_datapoint']['Close']) / buy_in_point['entry_datapoint']['Close']
+                        #     percentage_earnings_list[asset_key].append(percent_earning)
+                        #     percentage_earnings[asset_key] += percent_earning
+                        #     buy_in_point['last_datapoint'] = datapoint_1min
                         # if last_datapoint[asset_key] is not None and last_datapoint[asset_key]['Close'] > (datapoint_1min['High'] - datapoint_1min['Close']) * 0.5 + datapoint_1min['Close']:
                         #     buy_in_point['state'] = 'closed'
                         #     percent_earning = (datapoint_1min['High'] * 0.9974**2 - buy_in_point['entry_datapoint']['Close']) / buy_in_point['entry_datapoint']['Close']
