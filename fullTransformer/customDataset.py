@@ -63,7 +63,7 @@ class EvaluationDataset(CustomDataset):
         # create encoder decoder inputs and expected output
         self.encoder_input, self.decoder_input, self.eval_target = [], [], []
         self.timestamp_last_candle_encoder = []
-        self.sos_token = -torch.ones(len(list(data.values())[0]['Data'])).unsqueeze(0)
+        self.sos_token = -torch.ones(len(data[asset_key]['Data'][0])).unsqueeze(0)
 
         for sequence in sequences:
             self.encoder_input.append(torch.tensor(sequence[:encoder_input_length], dtype=torch.float)[:, layer_features['encoder_features']])
