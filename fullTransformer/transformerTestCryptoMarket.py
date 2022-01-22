@@ -2,6 +2,7 @@ import copy
 import math
 import os
 import pickle
+import random
 import warnings
 from functools import reduce
 from operator import itemgetter
@@ -130,14 +131,28 @@ def data_preprocessing(params, assets, features):
         shifted_copy_avg_train = []
         shifted_copy_avg_val = []
 
+        
+
         for num_copy, shifted_copy in enumerate(asset):
             for key, value in shifted_copy.items():
                 train_sequences[asset_key][key].append(value[0:math.floor(len(value) * params.split_percent)])
                 val_sequences[asset_key][key].append(value[math.floor(len(value) * params.split_percent):])
-
+            
             # determine average change for each shifted copy
             shifted_copy_avg_train.append(np.mean(np.abs(np.diff(list(zip(*train_sequences[asset_key]['Data'][num_copy])))), 1))
             shifted_copy_avg_val.append(np.mean(np.abs(np.diff(list(zip(*val_sequences[asset_key]['Data'][num_copy])))), 1))
+
+            # sort out buy_no to match size of buy_yes
+            idx_buy_yes = []
+            idx_buy_no = []
+
+            for num_feature, item_list in enumerate(train_sequences[asset_key]['Data'][num_copy]):
+                if item_list[7] == 1: idx_buy_yes.append(num_feature)
+                else: idx_buy_no.append(num_feature)
+
+            keep_buy_no = random.sample(idx_buy_no, len(idx_buy_yes))
+            train_sequences[asset_key]['Data'][num_copy] = list(np.array(train_sequences[asset_key]['Data'][num_copy])[keep_buy_no + idx_buy_yes])
+            train_sequences[asset_key]['Datetime'][num_copy] = list(np.array(train_sequences[asset_key]['Datetime'][num_copy])[keep_buy_no + idx_buy_yes])
 
         # average the avg change over all shifted copies
         feature_avg['train'] [asset_key] = np.mean(list(zip(*shifted_copy_avg_train)), 1)
@@ -207,14 +222,14 @@ def data_preprocessing(params, assets, features):
 class InitializeParameters():
     def __init__(self):
         self.val_set_eval_during_training = True
-        self.eval_mode = True
-        self.load_model = True
+        self.eval_mode = False
+        self.load_model = False
         self.overwrite_saved_data = False
 
         #self.model_name = 'test-multi-asset-5m'
         self.model_name = 'test--1'
 
-        self.asset_interval = 60
+        self.asset_interval = 30
         self.copy_shift = 4
         self.num_intervals = 2000 * self.asset_interval # num_intervals: number of intervals as integer
         self.split_percent = 0.9
