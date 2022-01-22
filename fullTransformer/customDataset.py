@@ -2,10 +2,11 @@ from json import decoder
 
 import torch
 from torch.utils.data import Dataset
-
+import random
+import numpy as np
 
 class CustomDataset(Dataset):
-    def __init__(self, data, layer_features, encoder_input_length=50, prediction_length=1, shift=1):
+    def __init__(self, data, layer_features, encoder_input_length=50, prediction_length=1, shift=1, dataset=None):
         
         # split entire history into sequences
         sequence_length = encoder_input_length + prediction_length
@@ -27,9 +28,22 @@ class CustomDataset(Dataset):
         for sequence in sequences:
             self.encoder_input.append(torch.tensor(sequence[:encoder_input_length], dtype=torch.float)[:, layer_features['encoder_features']])
             self.decoder_input.append(torch.tile(self.sos_token, (prediction_length, 1))[:, layer_features['decoder_features']].float())
-            # self.decoder_input.append(torch.cat((self.sos_token, torch.tensor(sequence[encoder_input_length:sequence_length-1]))).double())
             self.expected_output.append(torch.tensor(sequence[encoder_input_length:sequence_length], dtype=torch.float)[:, layer_features['decoder_features']])
 
+        if dataset == 'train':
+            idx_buy_yes = []
+            idx_buy_no = []
+
+            for num_feature, feature in enumerate(self.expected_output):
+                if feature[0][0] == 1: idx_buy_yes.append(num_feature) # 0 = index of buy_yes
+                else: idx_buy_no.append(num_feature)
+
+            keep = random.sample(idx_buy_no, len(idx_buy_yes)) + idx_buy_yes
+            self.encoder_input = np.array(self.encoder_input)[keep]
+            self.decoder_input = np.array(self.decoder_input)[keep]
+            self.expected_output = np.array(self.expected_output)[keep]
+            self.asset_tag = np.array(self.asset_tag)[keep]
+           
 
     def __len__(self):
         return len(self.encoder_input)

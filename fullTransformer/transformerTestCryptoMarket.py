@@ -142,18 +142,6 @@ def data_preprocessing(params, assets, features):
             shifted_copy_avg_train.append(np.mean(np.abs(np.diff(list(zip(*train_sequences[asset_key]['Data'][num_copy])))), 1))
             shifted_copy_avg_val.append(np.mean(np.abs(np.diff(list(zip(*val_sequences[asset_key]['Data'][num_copy])))), 1))
 
-            # sort out buy_no to match size of buy_yes
-            idx_buy_yes = []
-            idx_buy_no = []
-
-            for num_feature, item_list in enumerate(train_sequences[asset_key]['Data'][num_copy]):
-                if item_list[7] == 1: idx_buy_yes.append(num_feature)
-                else: idx_buy_no.append(num_feature)
-
-            keep_buy_no = random.sample(idx_buy_no, len(idx_buy_yes))
-            train_sequences[asset_key]['Data'][num_copy] = list(np.array(train_sequences[asset_key]['Data'][num_copy])[keep_buy_no + idx_buy_yes])
-            train_sequences[asset_key]['Datetime'][num_copy] = list(np.array(train_sequences[asset_key]['Datetime'][num_copy])[keep_buy_no + idx_buy_yes])
-
         # average the avg change over all shifted copies
         feature_avg['train'] [asset_key] = np.mean(list(zip(*shifted_copy_avg_train)), 1)
         feature_avg['val'][asset_key] = np.mean(list(zip(*shifted_copy_avg_val)), 1)
@@ -201,7 +189,7 @@ def data_preprocessing(params, assets, features):
     }
 
     # create Dataloader
-    train_ds = CustomDataset(train_sequences, layer_features, params.encoder_input_length, params.prediction_length, shift=params.sequence_shift)
+    train_ds = CustomDataset(train_sequences, layer_features, params.encoder_input_length, params.prediction_length, shift=params.sequence_shift, dataset='train')
     eval_ds = EvaluationDataset(val_sequences, layer_features, params.encoder_input_length, params.prediction_length, shift=params.sequence_shift)
     val_ds = CustomDataset(val_sequences, layer_features, params.encoder_input_length, params.prediction_length, params.sequence_shift)
     train_dl = DataLoader(train_ds, batch_size=params.batch_size['training'], shuffle=True, num_workers=0, pin_memory=True, persistent_workers=False)
