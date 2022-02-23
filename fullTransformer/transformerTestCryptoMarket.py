@@ -102,7 +102,7 @@ def data_preprocessing(params, assets, features):
         for asset_key, asset in assets.items():
             data_1min = load_asset(asset['api-name'], num_intervals=asset['num_intervals'])
             if len(data_1min) == params.num_intervals:
-                data_df_1min[asset_key] = data_1min.tail(params.split_percent*len(data_1min))
+                data_df_1min[asset_key] = data_1min.tail(int(params.split_percent*len(data_1min)))
                 data[asset_key] = custom_candles(data_df_1min[asset_key], params)
                 assets_cleaned.append(asset_key)
 
